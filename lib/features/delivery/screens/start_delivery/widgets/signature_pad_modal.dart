@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -18,14 +17,15 @@ class _SignaturePadModalState extends State<SignaturePadModal> {
   bool _hasDrawn = false;
 
   void _clear() => setState(() {
-        _points.clear();
-        _hasDrawn = false;
-      });
+    _points.clear();
+    _hasDrawn = false;
+  });
 
   Future<void> _done() async {
     if (!_hasDrawn) return;
-    final boundary = _repaintKey.currentContext!.findRenderObject()!
-        as RenderRepaintBoundary;
+    final boundary =
+        _repaintKey.currentContext!.findRenderObject()!
+            as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 3.0);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     if (!mounted) return;
@@ -35,8 +35,9 @@ class _SignaturePadModalState extends State<SignaturePadModal> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         height: MediaQuery.of(context).size.height * 0.58,
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -67,10 +68,7 @@ class _SignaturePadModalState extends State<SignaturePadModal> {
                 ),
                 Row(
                   children: [
-                    TextButton(
-                      onPressed: _clear,
-                      child: const Text('Clear'),
-                    ),
+                    TextButton(onPressed: _clear, child: const Text('Clear')),
                     const SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: _hasDrawn ? _done : null,

@@ -35,7 +35,9 @@ class _ChecklistStepState extends State<ChecklistStep> {
                 '${_items.where((i) => i.checked).length}/${_items.length} completed',
                 style: TextStyle(
                   fontSize: 13,
-                  color: _allChecked ? Colors.green.shade700 : AppTheme.textSecondary,
+                  color: _allChecked
+                      ? Colors.green.shade700
+                      : AppTheme.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -55,7 +57,7 @@ class _ChecklistStepState extends State<ChecklistStep> {
         Expanded(
           child: ListView.separated(
             itemCount: _items.length,
-            separatorBuilder: (_, __) =>
+            separatorBuilder: (_, _) =>
                 const Divider(height: 1, indent: 56, endIndent: 16),
             itemBuilder: (_, i) {
               final item = _items[i];
@@ -69,14 +71,18 @@ class _ChecklistStepState extends State<ChecklistStep> {
                     color: item.checked
                         ? AppTheme.textSecondary
                         : AppTheme.textPrimary,
-                    decoration: item.checked ? TextDecoration.lineThrough : null,
+                    decoration: item.checked
+                        ? TextDecoration.lineThrough
+                        : null,
                   ),
                 ),
                 activeColor: AppTheme.primary,
                 checkColor: Colors.white,
                 controlAffinity: ListTileControlAffinity.leading,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 2,
+                ),
               );
             },
           ),
@@ -104,5 +110,5 @@ class _ChecklistStepState extends State<ChecklistStep> {
 class _CheckItem {
   final String title;
   bool checked;
-  _CheckItem(this.title, {this.checked = false});
+  _CheckItem(this.title) : checked = false;
 }

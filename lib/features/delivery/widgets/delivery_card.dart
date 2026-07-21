@@ -54,7 +54,11 @@ class DeliveryCard extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        const Icon(Icons.calendar_today, size: 14, color: AppTheme.textSecondary),
+        const Icon(
+          Icons.calendar_today,
+          size: 14,
+          color: AppTheme.textSecondary,
+        ),
         const SizedBox(width: 4),
         Text(
           dateStr,
@@ -75,7 +79,11 @@ class DeliveryCard extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.person_outline, size: 18, color: AppTheme.textSecondary),
+            const Icon(
+              Icons.person_outline,
+              size: 18,
+              color: AppTheme.textSecondary,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -93,7 +101,11 @@ class DeliveryCard extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.location_on_outlined, size: 18, color: AppTheme.textSecondary),
+            const Icon(
+              Icons.location_on_outlined,
+              size: 18,
+              color: AppTheme.textSecondary,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -132,8 +144,18 @@ class DeliveryCard extends StatelessWidget {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final dayName = days[dt.weekday - 1];

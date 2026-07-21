@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart';
 import '../tabs/today_tab.dart';
 import '../tabs/upcoming_tab.dart';
 
@@ -20,12 +19,7 @@ class DeliveryScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: const TabBarView(
-          children: [
-            TodayTab(),
-            UpcomingTab(),
-          ],
-        ),
+        body: const TabBarView(children: [TodayTab(), UpcomingTab()]),
       ),
     );
   }

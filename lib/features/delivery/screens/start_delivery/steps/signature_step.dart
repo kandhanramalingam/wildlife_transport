@@ -16,7 +16,10 @@ class _SignatureStepState extends State<SignatureStep> {
 
   bool get _canStart => _managerSignature != null && _officerSignature != null;
 
-  Future<void> _openSignaturePad(String name, void Function(Uint8List) onSave) async {
+  Future<void> _openSignaturePad(
+    String name,
+    void Function(Uint8List) onSave,
+  ) async {
     final result = await showModalBottomSheet<Uint8List>(
       context: context,
       isScrollControlled: true,
@@ -65,20 +68,16 @@ class _SignatureStepState extends State<SignatureStep> {
             title: 'Manager',
             subtitle: 'Transport Manager',
             signature: _managerSignature,
-            onTap: () => _openSignaturePad(
-              'Manager',
-              (s) => _managerSignature = s,
-            ),
+            onTap: () =>
+                _openSignaturePad('Manager', (s) => _managerSignature = s),
           ),
           const SizedBox(height: 16),
           _SignatureCard(
             title: 'Officer',
             subtitle: 'Supervising Officer',
             signature: _officerSignature,
-            onTap: () => _openSignaturePad(
-              'Officer',
-              (s) => _officerSignature = s,
-            ),
+            onTap: () =>
+                _openSignaturePad('Officer', (s) => _officerSignature = s),
           ),
           const SizedBox(height: 32),
           SizedBox(
@@ -132,7 +131,11 @@ class _SignatureCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.person_outline, size: 18, color: AppTheme.primary),
+                const Icon(
+                  Icons.person_outline,
+                  size: 18,
+                  color: AppTheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,7 +159,11 @@ class _SignatureCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 if (signature != null)
-                  Icon(Icons.check_circle, color: Colors.green.shade600, size: 22),
+                  Icon(
+                    Icons.check_circle,
+                    color: Colors.green.shade600,
+                    size: 22,
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -200,13 +207,18 @@ class _SignatureCard extends StatelessWidget {
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.draw_outlined,
-                          color: AppTheme.textSecondary, size: 24),
+                      Icon(
+                        Icons.draw_outlined,
+                        color: AppTheme.textSecondary,
+                        size: 24,
+                      ),
                       SizedBox(height: 4),
                       Text(
                         'Tap to sign',
                         style: TextStyle(
-                            fontSize: 12, color: AppTheme.textSecondary),
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ],
                   ),

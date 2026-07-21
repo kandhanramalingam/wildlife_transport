@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/di/app_dependencies.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../home/home_screen.dart';
+import '../presentation/login_controller.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,30 +14,49 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _mobileController = TextEditingController();
   final _passwordController = TextEditingController();
+  late final LoginController _loginController;
   bool _obscurePassword = true;
-  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loginController = AppDependencies.createLoginController()
+      ..addListener(_onLoginStateChanged);
+  }
+
+  void _onLoginStateChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
     _mobileController.dispose();
     _passwordController.dispose();
+    _loginController
+      ..removeListener(_onLoginStateChanged)
+      ..dispose();
     super.dispose();
   }
 
   void _login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
-
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    final result = await _loginController.login(
+      phone: _mobileController.text.trim(),
+      password: _passwordController.text,
     );
+
+    if (!mounted || result == null) {
+      final message = _loginController.errorMessage;
+      if (mounted && message != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+
+    await AppDependencies.sessionController.markAuthenticated();
   }
 
   @override
@@ -72,7 +92,11 @@ class _LoginScreenState extends State<LoginScreen> {
             color: AppTheme.primary,
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Icon(Icons.local_shipping, color: Colors.white, size: 44),
+          child: const Icon(
+            Icons.local_shipping,
+            color: Colors.white,
+            size: 44,
+          ),
         ),
         const SizedBox(height: 16),
         const Text(
@@ -113,13 +137,22 @@ class _LoginScreenState extends State<LoginScreen> {
             maxLength: 10,
             decoration: const InputDecoration(
               hintText: 'Enter 10-digit mobile number',
-              prefixIcon: Icon(Icons.phone_android, color: AppTheme.textSecondary),
+              prefixIcon: Icon(
+                Icons.phone_android,
+                color: AppTheme.textSecondary,
+              ),
               counterText: '',
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Mobile number is required';
-              if (value.length != 10) return 'Enter a valid 10-digit mobile number';
-              if (!RegExp(r'^[6-9]\d{9}$').hasMatch(value)) return 'Enter a valid mobile number';
+              if (value == null || value.isEmpty) {
+                return 'Mobile number is required';
+              }
+              if (value.length != 10) {
+                return 'Enter a valid 10-digit mobile number';
+              }
+              if (!RegExp(r'^[6-9]\d{9}$').hasMatch(value)) {
+                return 'Enter a valid mobile number';
+              }
               return null;
             },
           ),
@@ -138,18 +171,26 @@ class _LoginScreenState extends State<LoginScreen> {
             obscureText: _obscurePassword,
             decoration: InputDecoration(
               hintText: 'Enter your password',
-              prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.textSecondary),
+              prefixIcon: const Icon(
+                Icons.lock_outline,
+                color: AppTheme.textSecondary,
+              ),
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscurePassword ? Icons.visibility_off : Icons.visibility,
                   color: AppTheme.textSecondary,
                 ),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Password is required';
-              if (value.length < 6) return 'Password must be at least 6 characters';
+              if (value == null || value.isEmpty) {
+                return 'Password is required';
+              }
+              if (value.length < 6) {
+                return 'Password must be at least 6 characters';
+              }
               return null;
             },
           ),
@@ -162,12 +203,15 @@ class _LoginScreenState extends State<LoginScreen> {
     return SizedBox(
       height: 52,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _login,
-        child: _isLoading
+        onPressed: _loginController.isLoading ? null : _login,
+        child: _loginController.isLoading
             ? const SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
               )
             : const Text('Login'),
       ),

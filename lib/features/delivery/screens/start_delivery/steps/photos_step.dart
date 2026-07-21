@@ -65,11 +65,13 @@ class _PhotosStepState extends State<PhotosStep> {
 
       if (mounted) {
         setState(() {
-          list.add(PhotoMeta(
-            photo: photo,
-            dateTime: DateTime.now(),
-            location: location,
-          ));
+          list.add(
+            PhotoMeta(
+              photo: photo,
+              dateTime: DateTime.now(),
+              location: location,
+            ),
+          );
           _isCapturing = false;
         });
       }
@@ -117,7 +119,10 @@ class _PhotosStepState extends State<PhotosStep> {
                     const SizedBox(height: 4),
                     const Text(
                       'Capture photos of the vehicle from all sides',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     _photoGrid(
@@ -129,7 +134,10 @@ class _PhotosStepState extends State<PhotosStep> {
                     const SizedBox(height: 4),
                     const Text(
                       'Capture photos of the animals before transport',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     _photoGrid(
@@ -149,13 +157,13 @@ class _PhotosStepState extends State<PhotosStep> {
   }
 
   Widget _sectionHeader(String title) => Text(
-        title,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textPrimary,
-        ),
-      );
+    title,
+    style: const TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+      color: AppTheme.textPrimary,
+    ),
+  );
 
   Widget _photoGrid({
     required List<PhotoMeta> photos,
@@ -166,8 +174,8 @@ class _PhotosStepState extends State<PhotosStep> {
       runSpacing: 8,
       children: [
         ...photos.asMap().entries.map(
-              (e) => _thumbnail(photos: photos, index: e.key),
-            ),
+          (e) => _thumbnail(photos: photos, index: e.key),
+        ),
         _addButton(onAdd),
       ],
     );
@@ -242,9 +250,16 @@ class _PhotosStepState extends State<PhotosStep> {
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_a_photo_outlined, color: AppTheme.textSecondary, size: 26),
+            Icon(
+              Icons.add_a_photo_outlined,
+              color: AppTheme.textSecondary,
+              size: 26,
+            ),
             SizedBox(height: 4),
-            Text('Add', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            Text(
+              'Add',
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            ),
           ],
         ),
       ),
