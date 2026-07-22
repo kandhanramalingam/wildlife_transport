@@ -1,51 +1,59 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_theme.dart';
 
-class ChecklistStep extends StatefulWidget {
+class GameLoadingChecklistStep extends StatefulWidget {
   final VoidCallback onNext;
-  const ChecklistStep({super.key, required this.onNext});
+
+  const GameLoadingChecklistStep({super.key, required this.onNext});
 
   @override
-  State<ChecklistStep> createState() => _ChecklistStepState();
+  State<GameLoadingChecklistStep> createState() =>
+      _GameLoadingChecklistStepState();
 }
 
-class _ChecklistStepState extends State<ChecklistStep> {
-  final List<_CheckItem> _items = [
-    _CheckItem('Check plotter in vehicle'),
-    _CheckItem('Check odometer reading'),
-    _CheckItem('Petrol Card in Vehicle'),
-    _CheckItem('Spare wheels for vehicle'),
-    _CheckItem('Toolbox for Game Handling'),
-    _CheckItem('Windscreen Cracks'),
-    _CheckItem('Speedometer working'),
-    _CheckItem('Wipers Working'),
-    _CheckItem('Seats clean and working condition'),
-    _CheckItem('Front Indicators'),
-    _CheckItem('Cab clean inside'),
-    _CheckItem('Front Headlights'),
-    _CheckItem('Gauges Working'),
-    _CheckItem('Taillights'),
-    _CheckItem('Brakes working'),
-    _CheckItem('Spotlights'),
-    _CheckItem('Dash neat and clean'),
-    _CheckItem('Rear Indicators'),
-    _CheckItem('Steering OK'),
-    _CheckItem('Front Tyres'),
-    _CheckItem('Wheel Spanner'),
-    _CheckItem('1st set rear tyres'),
-    _CheckItem('Jack'),
-    _CheckItem('2nd set rear tyres'),
-    _CheckItem('Triangles'),
-    _CheckItem('Wheelnuts'),
-    _CheckItem('Mirrors'),
-    _CheckItem('Batteries'),
-    _CheckItem('Door Handles'),
-    _CheckItem('Engine Check Sheet Before Start'),
-    _CheckItem('Engine Check Sheet After Start'),
-    _CheckItem('Engine Oil Level'),
-    _CheckItem('Air Gauge Working'),
-    _CheckItem('Water Level'),
-    _CheckItem('All Instruments Functional'),
+class _GameLoadingChecklistStepState extends State<GameLoadingChecklistStep> {
+  final List<_GameLoadingCheckItem> _items = [
+    _GameLoadingCheckItem('Confirm client contact details'),
+    _GameLoadingCheckItem(
+      'Confirm correct person delivering to either by cell phone number or contact details',
+    ),
+    _GameLoadingCheckItem(
+      'Client must be able to make notes during delivery on the device',
+    ),
+    _GameLoadingCheckItem(
+      'Driver must take video clip of animals being off loaded',
+    ),
+    _GameLoadingCheckItem(
+      'Driver must take photo of person accepting delivery',
+    ),
+    _GameLoadingCheckItem(
+      'Manage all paperwork electronically (see truck routing schedule)',
+    ),
+    _GameLoadingCheckItem('Confirm customer has paid'),
+    _GameLoadingCheckItem('Confirm quantity of lots'),
+    _GameLoadingCheckItem('Confirm lots of customer have been checked'),
+    _GameLoadingCheckItem('How many animals have been confirmed to load'),
+    _GameLoadingCheckItem('Any differences in quantities'),
+    _GameLoadingCheckItem('State differences and reason'),
+    _GameLoadingCheckItem('Confirm health of animals'),
+    _GameLoadingCheckItem('Confirm all health of animals'),
+    _GameLoadingCheckItem('If any animal is suspect, reason for health'),
+    _GameLoadingCheckItem('Action taken for animal'),
+    _GameLoadingCheckItem('Confirm all animals have been loaded for customer'),
+    _GameLoadingCheckItem(
+      'Confirm customer has been informed of any mortalities',
+    ),
+    _GameLoadingCheckItem('Confirm customer has loading ramp or not'),
+    _GameLoadingCheckItem('If not, what must be done off loading'),
+    _GameLoadingCheckItem('Confirm delivery has been confirmed with customer'),
+    _GameLoadingCheckItem(
+      'Confirm name and cellphone number for delivery has been confirmed',
+    ),
+    _GameLoadingCheckItem(
+      'Confirmed special delivery instructions have been reviewed',
+    ),
+    _GameLoadingCheckItem('View any special delivery instructions'),
+    _GameLoadingCheckItem('Any special notes to be noted for delivery'),
   ];
 
   bool get _allChecked => _items.every((item) => item.checked);
@@ -59,7 +67,7 @@ class _ChecklistStepState extends State<ChecklistStep> {
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Vehicle Check List',
+              'Game Loading Check List',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -73,7 +81,7 @@ class _ChecklistStepState extends State<ChecklistStep> {
           child: Row(
             children: [
               Text(
-                '${_items.where((i) => i.checked).length}/${_items.length} completed',
+                '${_items.where((item) => item.checked).length}/${_items.length} completed',
                 style: TextStyle(
                   fontSize: 13,
                   color: _allChecked
@@ -100,11 +108,12 @@ class _ChecklistStepState extends State<ChecklistStep> {
             itemCount: _items.length,
             separatorBuilder: (_, _) =>
                 const Divider(height: 1, indent: 56, endIndent: 16),
-            itemBuilder: (_, i) {
-              final item = _items[i];
+            itemBuilder: (_, index) {
+              final item = _items[index];
               return CheckboxListTile(
                 value: item.checked,
-                onChanged: (v) => setState(() => item.checked = v ?? false),
+                onChanged: (value) =>
+                    setState(() => item.checked = value ?? false),
                 title: Text(
                   item.title,
                   style: TextStyle(
@@ -148,8 +157,9 @@ class _ChecklistStepState extends State<ChecklistStep> {
   }
 }
 
-class _CheckItem {
+class _GameLoadingCheckItem {
   final String title;
   bool checked;
-  _CheckItem(this.title) : checked = false;
+
+  _GameLoadingCheckItem(this.title) : checked = false;
 }

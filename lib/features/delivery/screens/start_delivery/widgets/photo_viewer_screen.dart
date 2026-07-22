@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../models/photo_meta.dart';
 
@@ -109,10 +110,15 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
               minScale: 1.0,
               maxScale: 4.0,
               child: Center(
-                child: Image.file(
-                  File(widget.photos[index].photo.path),
-                  fit: BoxFit.contain,
-                ),
+                child: kIsWeb
+                    ? Image.network(
+                        widget.photos[index].photo.path,
+                        fit: BoxFit.contain,
+                      )
+                    : Image.file(
+                        File(widget.photos[index].photo.path),
+                        fit: BoxFit.contain,
+                      ),
               ),
             ),
           ),

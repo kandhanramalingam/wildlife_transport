@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,12 +20,14 @@ class _PhotosStepState extends State<PhotosStep> {
   final List<PhotoMeta> _vehiclePhotos = [];
   final List<PhotoMeta> _animalPhotos = [];
   final _picker = ImagePicker();
+  XFile? _animalVideo;
   bool _isCapturing = false;
 
   bool get _canProceed =>
       _kmController.text.trim().isNotEmpty &&
       _vehiclePhotos.isNotEmpty &&
-      _animalPhotos.isNotEmpty;
+      _animalPhotos.isNotEmpty &&
+      _animalVideo != null;
 
   Future<String> _fetchLocation() async {
     try {
@@ -41,8 +44,10 @@ class _PhotosStepState extends State<PhotosStep> {
       }
 
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 8),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
       );
       final lat = pos.latitude.toStringAsFixed(5);
       final lng = pos.longitude.toStringAsFixed(5);
@@ -80,6 +85,24 @@ class _PhotosStepState extends State<PhotosStep> {
         setState(() => _isCapturing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to capture photo')),
+        );
+      }
+    }
+  }
+
+  Future<void> _captureVideo() async {
+    try {
+      final video = await _picker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(seconds: 30),
+      );
+      if (video != null && mounted) {
+        setState(() => _animalVideo = video);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to capture video clip')),
         );
       }
     }
@@ -144,6 +167,18 @@ class _PhotosStepState extends State<PhotosStep> {
                       photos: _animalPhotos,
                       onAdd: () => _capturePhoto(_animalPhotos),
                     ),
+                    const SizedBox(height: 24),
+                    _sectionHeader('Animal Video Clip'),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Capture a video clip of the animals before transport (up to 30 seconds)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _videoCaptureCard(),
                   ],
                 ),
               ),
@@ -198,12 +233,19 @@ class _PhotosStepState extends State<PhotosStep> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.file(
-              File(meta.photo.path),
-              width: 90,
-              height: 90,
-              fit: BoxFit.cover,
-            ),
+            child: kIsWeb
+                ? Image.network(
+                    meta.photo.path,
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.cover,
+                  )
+                : Image.file(
+                    File(meta.photo.path),
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.cover,
+                  ),
           ),
           // Datetime + location stamp overlay
           Positioned(
@@ -262,6 +304,72 @@ class _PhotosStepState extends State<PhotosStep> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _videoCaptureCard() {
+    final video = _animalVideo;
+    if (video == null) {
+      return GestureDetector(
+        onTap: _captureVideo,
+        child: Container(
+          width: 140,
+          height: 90,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.videocam_outlined,
+                color: AppTheme.textSecondary,
+                size: 30,
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Record clip',
+                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: AppTheme.primary, size: 30),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              video.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Record again',
+            onPressed: _captureVideo,
+            icon: const Icon(Icons.replay_outlined),
+          ),
+          IconButton(
+            tooltip: 'Remove video',
+            onPressed: () => setState(() => _animalVideo = null),
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+          ),
+        ],
       ),
     );
   }

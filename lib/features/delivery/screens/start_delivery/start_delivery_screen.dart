@@ -3,6 +3,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../models/delivery_model.dart';
 import 'steps/photos_step.dart';
 import 'steps/checklist_step.dart';
+import 'steps/game_loading_checklist_step.dart';
 import 'steps/signature_step.dart';
 
 class StartDeliveryScreen extends StatefulWidget {
@@ -17,10 +18,15 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
 
-  final List<String> _stepTitles = ['Photos', 'Checklist', 'Signatures'];
+  final List<String> _stepTitles = [
+    'Photos',
+    'Vehicle\nChecklist',
+    'Game Loading\nChecklist',
+    'Signatures',
+  ];
 
   void _goNext() {
-    if (_currentStep < 2) {
+    if (_currentStep < _stepTitles.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -64,6 +70,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
               children: [
                 PhotosStep(onNext: _goNext),
                 ChecklistStep(onNext: _goNext),
+                GameLoadingChecklistStep(onNext: _goNext),
                 const SignatureStep(),
               ],
             ),
@@ -85,6 +92,8 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
           _buildStepItem(1),
           _buildConnector(1),
           _buildStepItem(2),
+          _buildConnector(2),
+          _buildStepItem(3),
         ],
       ),
     );
@@ -117,6 +126,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
         const SizedBox(height: 4),
         Text(
           _stepTitles[index],
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 11,
             color: isActive || isDone ? Colors.white : Colors.white54,
