@@ -40,6 +40,28 @@ class TodayDeliveriesController extends ChangeNotifier {
     }
   }
 
+  void markTripStarted(String deliveryId) {
+    _updateStatus(deliveryId, DeliveryStatus.inProgress);
+  }
+
+  void markDeliveryCompleted(String deliveryId) {
+    _updateStatus(deliveryId, DeliveryStatus.completed);
+  }
+
+  void _updateStatus(String deliveryId, DeliveryStatus status) {
+    final index = deliveries.indexWhere(
+      (delivery) => delivery.id == deliveryId,
+    );
+    if (index == -1) return;
+
+    final updatedDeliveries = List<DeliveryModel>.of(deliveries);
+    updatedDeliveries[index] = updatedDeliveries[index].copyWith(
+      status: status,
+    );
+    deliveries = List.unmodifiable(updatedDeliveries);
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _cancelToken?.cancel('Today deliveries disposed');

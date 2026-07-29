@@ -4,7 +4,21 @@ import '../../../../../core/theme/app_theme.dart';
 import '../widgets/signature_pad_modal.dart';
 
 class SignatureStep extends StatefulWidget {
-  const SignatureStep({super.key});
+  final VoidCallback onStartTrip;
+  final String buttonLabel;
+  final String description;
+  final String incompleteMessage;
+  final bool clientSignatureOnly;
+
+  const SignatureStep({
+    super.key,
+    required this.onStartTrip,
+    this.buttonLabel = 'Start Trip',
+    this.description =
+        'Obtain signatures from both officers before starting the trip.',
+    this.incompleteMessage = 'Both signatures are required to start the trip',
+    this.clientSignatureOnly = false,
+  });
 
   @override
   State<SignatureStep> createState() => _SignatureStepState();
@@ -14,7 +28,9 @@ class _SignatureStepState extends State<SignatureStep> {
   Uint8List? _managerSignature;
   Uint8List? _officerSignature;
 
-  bool get _canStart => _managerSignature != null && _officerSignature != null;
+  bool get _canStart => widget.clientSignatureOnly
+      ? _managerSignature != null
+      : _managerSignature != null && _officerSignature != null;
 
   Future<void> _openSignaturePad(
     String name,
@@ -32,15 +48,7 @@ class _SignatureStepState extends State<SignatureStep> {
   }
 
   void _startTrip() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Trip started successfully!'),
-        backgroundColor: AppTheme.primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    widget.onStartTrip();
   }
 
   @override
@@ -59,26 +67,32 @@ class _SignatureStepState extends State<SignatureStep> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Obtain signatures from both officers before starting the trip.',
-            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+          Text(
+            widget.description,
+            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 20),
           _SignatureCard(
-            title: 'Manager',
-            subtitle: 'Transport Manager',
+            title: widget.clientSignatureOnly ? 'Client' : 'Manager',
+            subtitle: widget.clientSignatureOnly
+                ? 'Person accepting the game'
+                : 'Transport Manager',
             signature: _managerSignature,
-            onTap: () =>
-                _openSignaturePad('Manager', (s) => _managerSignature = s),
+            onTap: () => _openSignaturePad(
+              widget.clientSignatureOnly ? 'Client' : 'Manager',
+              (s) => _managerSignature = s,
+            ),
           ),
-          const SizedBox(height: 16),
-          _SignatureCard(
-            title: 'Officer',
-            subtitle: 'Supervising Officer',
-            signature: _officerSignature,
-            onTap: () =>
-                _openSignaturePad('Officer', (s) => _officerSignature = s),
-          ),
+          if (!widget.clientSignatureOnly) ...[
+            const SizedBox(height: 16),
+            _SignatureCard(
+              title: 'Officer',
+              subtitle: 'Supervising Officer',
+              signature: _officerSignature,
+              onTap: () =>
+                  _openSignaturePad('Officer', (s) => _officerSignature = s),
+            ),
+          ],
           const SizedBox(height: 32),
           SizedBox(
             width: double.infinity,
@@ -86,16 +100,19 @@ class _SignatureStepState extends State<SignatureStep> {
             child: ElevatedButton.icon(
               onPressed: _canStart ? _startTrip : null,
               icon: const Icon(Icons.directions_car_outlined),
-              label: const Text('Start Trip'),
+              label: Text(widget.buttonLabel),
             ),
           ),
           if (!_canStart)
-            const Padding(
-              padding: EdgeInsets.only(top: 10),
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
               child: Center(
                 child: Text(
-                  'Both signatures are required to start the trip',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  widget.incompleteMessage,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),

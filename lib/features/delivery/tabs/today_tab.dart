@@ -4,6 +4,7 @@ import '../../../core/di/app_dependencies.dart';
 import '../models/delivery_model.dart';
 import '../presentation/today_deliveries_controller.dart';
 import '../screens/start_delivery/start_delivery_screen.dart';
+import '../screens/trip_customers_screen.dart';
 import '../widgets/delivery_card.dart';
 
 class TodayTab extends StatefulWidget {
@@ -66,7 +67,7 @@ class _TodayTabState extends State<TodayTab> {
           final delivery = _controller.deliveries[index];
           return DeliveryCard(
             delivery: delivery,
-            onStart: () => _onStartDelivery(context, delivery),
+            onStart: () => _onStartDelivery(delivery),
           );
         },
       ),
@@ -77,12 +78,45 @@ class _TodayTabState extends State<TodayTab> {
     await AppDependencies.sessionController.logout();
   }
 
-  void _onStartDelivery(BuildContext context, DeliveryModel delivery) {
-    Navigator.of(context).push(
+  Future<void> _onStartDelivery(DeliveryModel delivery) async {
+    if (delivery.status == DeliveryStatus.inProgress) {
+      await _openTripCustomers();
+      return;
+    }
+
+    final tripStarted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => StartDeliveryScreen(delivery: delivery),
       ),
     );
+
+    if (tripStarted != true || !mounted) return;
+
+    _controller.markTripStarted(delivery.id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Trip started successfully!'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _openTripCustomers() async {
+    final tripDeliveries = _controller.deliveries
+        .where((delivery) => delivery.status == DeliveryStatus.inProgress)
+        .toList(growable: false);
+
+    final completedDeliveryIds = await Navigator.of(context).push<List<String>>(
+      MaterialPageRoute(
+        builder: (_) => TripCustomersScreen(deliveries: tripDeliveries),
+      ),
+    );
+
+    if (completedDeliveryIds == null || !mounted) return;
+    for (final deliveryId in completedDeliveryIds) {
+      _controller.markDeliveryCompleted(deliveryId);
+    }
   }
 }
 

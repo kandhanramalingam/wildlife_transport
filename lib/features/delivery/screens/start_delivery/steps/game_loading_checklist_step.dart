@@ -3,8 +3,13 @@ import '../../../../../core/theme/app_theme.dart';
 
 class GameLoadingChecklistStep extends StatefulWidget {
   final VoidCallback onNext;
+  final bool isOffLoading;
 
-  const GameLoadingChecklistStep({super.key, required this.onNext});
+  const GameLoadingChecklistStep({
+    super.key,
+    required this.onNext,
+    this.isOffLoading = false,
+  });
 
   @override
   State<GameLoadingChecklistStep> createState() =>
@@ -12,49 +17,73 @@ class GameLoadingChecklistStep extends StatefulWidget {
 }
 
 class _GameLoadingChecklistStepState extends State<GameLoadingChecklistStep> {
-  final List<_GameLoadingCheckItem> _items = [
-    _GameLoadingCheckItem('Confirm client contact details'),
-    _GameLoadingCheckItem(
-      'Confirm correct person delivering to either by cell phone number or contact details',
-    ),
-    _GameLoadingCheckItem(
-      'Client must be able to make notes during delivery on the device',
-    ),
-    _GameLoadingCheckItem(
-      'Driver must take video clip of animals being off loaded',
-    ),
-    _GameLoadingCheckItem(
-      'Driver must take photo of person accepting delivery',
-    ),
-    _GameLoadingCheckItem(
-      'Manage all paperwork electronically (see truck routing schedule)',
-    ),
-    _GameLoadingCheckItem('Confirm customer has paid'),
-    _GameLoadingCheckItem('Confirm quantity of lots'),
-    _GameLoadingCheckItem('Confirm lots of customer have been checked'),
-    _GameLoadingCheckItem('How many animals have been confirmed to load'),
-    _GameLoadingCheckItem('Any differences in quantities'),
-    _GameLoadingCheckItem('State differences and reason'),
-    _GameLoadingCheckItem('Confirm health of animals'),
-    _GameLoadingCheckItem('Confirm all health of animals'),
-    _GameLoadingCheckItem('If any animal is suspect, reason for health'),
-    _GameLoadingCheckItem('Action taken for animal'),
-    _GameLoadingCheckItem('Confirm all animals have been loaded for customer'),
-    _GameLoadingCheckItem(
-      'Confirm customer has been informed of any mortalities',
-    ),
-    _GameLoadingCheckItem('Confirm customer has loading ramp or not'),
-    _GameLoadingCheckItem('If not, what must be done off loading'),
-    _GameLoadingCheckItem('Confirm delivery has been confirmed with customer'),
-    _GameLoadingCheckItem(
-      'Confirm name and cellphone number for delivery has been confirmed',
-    ),
-    _GameLoadingCheckItem(
-      'Confirmed special delivery instructions have been reviewed',
-    ),
-    _GameLoadingCheckItem('View any special delivery instructions'),
-    _GameLoadingCheckItem('Any special notes to be noted for delivery'),
-  ];
+  late final List<_GameLoadingCheckItem> _items = widget.isOffLoading
+      ? [
+          _GameLoadingCheckItem(
+            'Check the person’s identity and confirm the correct person is accepting the game. If it is not the same person, contact the office first.',
+          ),
+          _GameLoadingCheckItem(
+            'Check the quantities of animals on the vehicle with the client.',
+          ),
+          _GameLoadingCheckItem(
+            'Client must sign on screen accepting the animals’ health and quantities.',
+          ),
+          _GameLoadingCheckItem('Check the health of all animals.'),
+          _GameLoadingCheckItem('Take photos of all animals on the truck.'),
+          _GameLoadingCheckItem(
+            'Take a video clip while the animals are being off-loaded.',
+          ),
+          _GameLoadingCheckItem(
+            'Save the pinpoint location of the off-loading point for future reference.',
+          ),
+        ]
+      : [
+          _GameLoadingCheckItem('Confirm client contact details'),
+          _GameLoadingCheckItem(
+            'Confirm correct person delivering to either by cell phone number or contact details',
+          ),
+          _GameLoadingCheckItem(
+            'Client must be able to make notes during delivery on the device',
+          ),
+          _GameLoadingCheckItem(
+            'Driver must take video clip of animals being off loaded',
+          ),
+          _GameLoadingCheckItem(
+            'Driver must take photo of person accepting delivery',
+          ),
+          _GameLoadingCheckItem(
+            'Manage all paperwork electronically (see truck routing schedule)',
+          ),
+          _GameLoadingCheckItem('Confirm customer has paid'),
+          _GameLoadingCheckItem('Confirm quantity of lots'),
+          _GameLoadingCheckItem('Confirm lots of customer have been checked'),
+          _GameLoadingCheckItem('How many animals have been confirmed to load'),
+          _GameLoadingCheckItem('Any differences in quantities'),
+          _GameLoadingCheckItem('State differences and reason'),
+          _GameLoadingCheckItem('Confirm health of animals'),
+          _GameLoadingCheckItem('Confirm all health of animals'),
+          _GameLoadingCheckItem('If any animal is suspect, reason for health'),
+          _GameLoadingCheckItem('Action taken for animal'),
+          _GameLoadingCheckItem(
+            'Confirm all animals have been loaded for customer',
+          ),
+          _GameLoadingCheckItem(
+            'Confirm customer has been informed of any mortalities',
+          ),
+          _GameLoadingCheckItem('Confirm customer has loading ramp or not'),
+          _GameLoadingCheckItem('If not, what must be done off loading'),
+          _GameLoadingCheckItem(
+            'Confirm delivery has been confirmed with customer',
+          ),
+          _GameLoadingCheckItem(
+            'Confirm name and cellphone number for delivery has been confirmed',
+          ),
+          _GameLoadingCheckItem(
+            'Confirmed special delivery instructions have been reviewed',
+          ),
+          _GameLoadingCheckItem('View any special delivery instructions'),
+          _GameLoadingCheckItem('Any special notes to be noted for delivery'),
+        ];
 
   bool get _allChecked => _items.every((item) => item.checked);
 
@@ -62,13 +91,15 @@ class _GameLoadingChecklistStepState extends State<GameLoadingChecklistStep> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Game Loading Check List',
-              style: TextStyle(
+              widget.isOffLoading
+                  ? 'Off Loading Checking'
+                  : 'Game Loading Check List',
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimary,

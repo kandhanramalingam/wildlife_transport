@@ -124,13 +124,29 @@ class DeliveryCard extends StatelessWidget {
   }
 
   Widget _buildStartButton() {
+    final tripStarted = delivery.status == DeliveryStatus.inProgress;
+    final completed = delivery.status == DeliveryStatus.completed;
+
     return SizedBox(
       width: double.infinity,
       height: 44,
       child: ElevatedButton.icon(
-        onPressed: onStart,
-        icon: const Icon(Icons.play_arrow_rounded, size: 20),
-        label: const Text('Start Delivery'),
+        onPressed: completed ? null : onStart,
+        icon: Icon(
+          completed
+              ? Icons.task_alt
+              : tripStarted
+              ? Icons.route_outlined
+              : Icons.play_arrow_rounded,
+          size: 20,
+        ),
+        label: Text(
+          completed
+              ? 'Delivery Completed'
+              : tripStarted
+              ? 'Trip Started'
+              : 'Start Delivery',
+        ),
       ),
     );
   }

@@ -6,9 +6,17 @@ import 'steps/checklist_step.dart';
 import 'steps/game_loading_checklist_step.dart';
 import 'steps/signature_step.dart';
 
+enum DeliveryWorkflow { startTrip, arrival }
+
 class StartDeliveryScreen extends StatefulWidget {
   final DeliveryModel delivery;
-  const StartDeliveryScreen({super.key, required this.delivery});
+  final DeliveryWorkflow workflow;
+
+  const StartDeliveryScreen({
+    super.key,
+    required this.delivery,
+    this.workflow = DeliveryWorkflow.startTrip,
+  });
 
   @override
   State<StartDeliveryScreen> createState() => _StartDeliveryScreenState();
@@ -18,12 +26,16 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
 
-  final List<String> _stepTitles = [
-    'Photos',
-    'Vehicle\nChecklist',
-    'Game Loading\nChecklist',
-    'Signatures',
-  ];
+  bool get _isArrival => widget.workflow == DeliveryWorkflow.arrival;
+
+  List<String> get _stepTitles => _isArrival
+      ? ['Photos', 'Off Loading\nChecking', 'Client\nSignature']
+      : [
+          'Photos',
+          'Vehicle\nChecklist',
+          'Game Loading\nChecklist',
+          'Signatures',
+        ];
 
   void _goNext() {
     if (_currentStep < _stepTitles.length - 1) {
@@ -68,10 +80,28 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
               children: [
-                PhotosStep(onNext: _goNext),
-                ChecklistStep(onNext: _goNext),
-                GameLoadingChecklistStep(onNext: _goNext),
-                const SignatureStep(),
+                PhotosStep(
+                  onNext: _goNext,
+                  includeVehicleDetails: !_isArrival,
+                  includeVehiclePhotos: !_isArrival,
+                  isOffLoading: _isArrival,
+                ),
+                if (!_isArrival) ChecklistStep(onNext: _goNext),
+                GameLoadingChecklistStep(
+                  onNext: _goNext,
+                  isOffLoading: _isArrival,
+                ),
+                SignatureStep(
+                  onStartTrip: _finishWorkflow,
+                  buttonLabel: _isArrival ? 'Complete Delivery' : 'Start Trip',
+                  clientSignatureOnly: _isArrival,
+                  description: _isArrival
+                      ? 'The client must sign to accept the animals’ health and quantities.'
+                      : 'Obtain signatures from both officers before starting the trip.',
+                  incompleteMessage: _isArrival
+                      ? 'The client signature is required to complete delivery'
+                      : 'Both signatures are required to start the trip',
+                ),
               ],
             ),
           ),
@@ -80,21 +110,20 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
     );
   }
 
+  void _finishWorkflow() {
+    Navigator.of(context).pop(true);
+  }
+
   Widget _buildStepper() {
     return Container(
       color: AppTheme.primary,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStepItem(0),
-          _buildConnector(0),
-          _buildStepItem(1),
-          _buildConnector(1),
-          _buildStepItem(2),
-          _buildConnector(2),
-          _buildStepItem(3),
-        ],
+        children: List.generate(_stepTitles.length * 2 - 1, (index) {
+          if (index.isEven) return _buildStepItem(index ~/ 2);
+          return _buildConnector(index ~/ 2);
+        }),
       ),
     );
   }

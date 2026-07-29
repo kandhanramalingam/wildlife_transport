@@ -9,7 +9,17 @@ import '../widgets/photo_viewer_screen.dart';
 
 class PhotosStep extends StatefulWidget {
   final VoidCallback onNext;
-  const PhotosStep({super.key, required this.onNext});
+  final bool includeVehicleDetails;
+  final bool includeVehiclePhotos;
+  final bool isOffLoading;
+
+  const PhotosStep({
+    super.key,
+    required this.onNext,
+    this.includeVehicleDetails = true,
+    this.includeVehiclePhotos = true,
+    this.isOffLoading = false,
+  });
 
   @override
   State<PhotosStep> createState() => _PhotosStepState();
@@ -24,8 +34,8 @@ class _PhotosStepState extends State<PhotosStep> {
   bool _isCapturing = false;
 
   bool get _canProceed =>
-      _kmController.text.trim().isNotEmpty &&
-      _vehiclePhotos.isNotEmpty &&
+      (!widget.includeVehicleDetails || _kmController.text.trim().isNotEmpty) &&
+      (!widget.includeVehiclePhotos || _vehiclePhotos.isNotEmpty) &&
       _animalPhotos.isNotEmpty &&
       _animalVideo != null;
 
@@ -126,38 +136,44 @@ class _PhotosStepState extends State<PhotosStep> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _sectionHeader('Vehicle Details'),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _kmController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Odometer Reading (KM)',
-                        prefixIcon: Icon(Icons.speed_outlined),
+                    if (widget.includeVehicleDetails) ...[
+                      _sectionHeader('Vehicle Details'),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _kmController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Odometer Reading (KM)',
+                          prefixIcon: Icon(Icons.speed_outlined),
+                        ),
+                        onChanged: (_) => setState(() {}),
                       ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 24),
-                    _sectionHeader('Vehicle Photos'),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Capture photos of the vehicle from all sides',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
+                      const SizedBox(height: 24),
+                    ],
+                    if (widget.includeVehiclePhotos) ...[
+                      _sectionHeader('Vehicle Photos'),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Capture photos of the vehicle from all sides',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    _photoGrid(
-                      photos: _vehiclePhotos,
-                      onAdd: () => _capturePhoto(_vehiclePhotos),
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 10),
+                      _photoGrid(
+                        photos: _vehiclePhotos,
+                        onAdd: () => _capturePhoto(_vehiclePhotos),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
                     _sectionHeader('Animal Photos'),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Capture photos of the animals before transport',
-                      style: TextStyle(
+                    Text(
+                      widget.isOffLoading
+                          ? 'Take photos of all animals on the truck before off-loading'
+                          : 'Capture photos of the animals before transport',
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppTheme.textSecondary,
                       ),
@@ -170,9 +186,11 @@ class _PhotosStepState extends State<PhotosStep> {
                     const SizedBox(height: 24),
                     _sectionHeader('Animal Video Clip'),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Capture a video clip of the animals before transport (up to 30 seconds)',
-                      style: TextStyle(
+                    Text(
+                      widget.isOffLoading
+                          ? 'Record a video clip while the animals are being off-loaded (up to 30 seconds)'
+                          : 'Capture a video clip of the animals before transport (up to 30 seconds)',
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppTheme.textSecondary,
                       ),

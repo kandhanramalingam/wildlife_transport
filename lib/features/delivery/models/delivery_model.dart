@@ -32,4 +32,17 @@ class DeliveryModel {
     this.status = DeliveryStatus.pending,
     this.paymentStatus = false,
   });
+
+  DeliveryModel copyWith({DeliveryStatus? status}) {
+    return DeliveryModel(
+      id: id,
+      buyerId: buyerId,
+      auctionId: auctionId,
+      dateTime: dateTime,
+      clientName: clientName,
+      clientAddress: clientAddress,
+      status: status ?? this.status,
+      paymentStatus: paymentStatus,
+    );
+  }
 }
