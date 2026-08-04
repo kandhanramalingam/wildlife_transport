@@ -9,6 +9,9 @@ abstract interface class DeliveryRemoteDataSource {
   Future<List<DeliveryScheduleDto>> getUpcomingSchedule({
     CancelToken? cancelToken,
   });
+  Future<String> uploadImage(List<int> bytes, String filename);
+  Future<String> uploadVideo(List<int> bytes, String filename);
+  Future<void> startDelivery(String deliveryId, Map<String, dynamic> body);
 }
 
 class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
@@ -25,6 +28,40 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
   Future<List<DeliveryScheduleDto>> getUpcomingSchedule({
     CancelToken? cancelToken,
   }) => _getSchedule('driver-auth/schedule/upcoming', cancelToken);
+
+  @override
+  Future<String> uploadImage(List<int> bytes, String filename) =>
+      _uploadFile('file/upload', bytes, filename);
+
+  @override
+  Future<String> uploadVideo(List<int> bytes, String filename) =>
+      _uploadFile('file/upload-video', bytes, filename);
+
+  Future<String> _uploadFile(
+    String path,
+    List<int> bytes,
+    String filename,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      path,
+      data: FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      }),
+    );
+    final filePath = response.data?['filePath'];
+    if (filePath is! String || filePath.isEmpty) {
+      throw const FormatException('Upload response did not include filePath');
+    }
+    return filePath;
+  }
+
+  @override
+  Future<void> startDelivery(
+    String deliveryId,
+    Map<String, dynamic> body,
+  ) async {
+    await _dio.post<void>('driver-auth/delivery/$deliveryId/start', data: body);
+  }
 
   Future<List<DeliveryScheduleDto>> _getSchedule(
     String path,

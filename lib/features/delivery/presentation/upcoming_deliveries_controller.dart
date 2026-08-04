@@ -40,6 +40,25 @@ class UpcomingDeliveriesController extends ChangeNotifier {
     }
   }
 
+  void markTripStarted(String deliveryId) {
+    _updateStatus(deliveryId, DeliveryStatus.inProgress);
+  }
+
+  void markDeliveryCompleted(String deliveryId) {
+    _updateStatus(deliveryId, DeliveryStatus.completed);
+  }
+
+  void _updateStatus(String deliveryId, DeliveryStatus status) {
+    final index = deliveries.indexWhere(
+      (delivery) => delivery.id == deliveryId,
+    );
+    if (index == -1) return;
+    final updated = List<DeliveryModel>.of(deliveries);
+    updated[index] = updated[index].copyWith(status: status);
+    deliveries = List.unmodifiable(updated);
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _cancelToken?.cancel('Upcoming deliveries disposed');

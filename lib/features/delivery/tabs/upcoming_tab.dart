@@ -4,6 +4,7 @@ import '../../../core/di/app_dependencies.dart';
 import '../models/delivery_model.dart';
 import '../presentation/upcoming_deliveries_controller.dart';
 import '../screens/start_delivery/start_delivery_screen.dart';
+import '../screens/trip_customers_screen.dart';
 import '../widgets/delivery_card.dart';
 
 class UpcomingTab extends StatefulWidget {
@@ -68,19 +69,42 @@ class _UpcomingTabState extends State<UpcomingTab> {
           final delivery = _controller.deliveries[index];
           return DeliveryCard(
             delivery: delivery,
-            onStart: () => _onStartDelivery(context, delivery),
+            onStart: () => _onStartDelivery(delivery),
           );
         },
       ),
     );
   }
 
-  void _onStartDelivery(BuildContext context, DeliveryModel delivery) {
-    Navigator.of(context).push(
+  Future<void> _onStartDelivery(DeliveryModel delivery) async {
+    if (delivery.status == DeliveryStatus.inProgress) {
+      await _openTripCustomers(delivery);
+      return;
+    }
+
+    final tripStarted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => StartDeliveryScreen(delivery: delivery),
       ),
     );
+
+    if (tripStarted != true || !mounted) return;
+    _controller.markTripStarted(delivery.id);
+    await _openTripCustomers(
+      delivery.copyWith(status: DeliveryStatus.inProgress),
+    );
+  }
+
+  Future<void> _openTripCustomers(DeliveryModel delivery) async {
+    final completedIds = await Navigator.of(context).push<List<String>>(
+      MaterialPageRoute(
+        builder: (_) => TripCustomersScreen(deliveries: [delivery]),
+      ),
+    );
+    if (completedIds == null || !mounted) return;
+    for (final deliveryId in completedIds) {
+      _controller.markDeliveryCompleted(deliveryId);
+    }
   }
 }
 

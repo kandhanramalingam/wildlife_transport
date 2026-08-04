@@ -80,7 +80,7 @@ class _TodayTabState extends State<TodayTab> {
 
   Future<void> _onStartDelivery(DeliveryModel delivery) async {
     if (delivery.status == DeliveryStatus.inProgress) {
-      await _openTripCustomers();
+      await _openTripCustomers(delivery);
       return;
     }
 
@@ -100,16 +100,15 @@ class _TodayTabState extends State<TodayTab> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+    await _openTripCustomers(
+      delivery.copyWith(status: DeliveryStatus.inProgress),
+    );
   }
 
-  Future<void> _openTripCustomers() async {
-    final tripDeliveries = _controller.deliveries
-        .where((delivery) => delivery.status == DeliveryStatus.inProgress)
-        .toList(growable: false);
-
+  Future<void> _openTripCustomers(DeliveryModel delivery) async {
     final completedDeliveryIds = await Navigator.of(context).push<List<String>>(
       MaterialPageRoute(
-        builder: (_) => TripCustomersScreen(deliveries: tripDeliveries),
+        builder: (_) => TripCustomersScreen(deliveries: [delivery]),
       ),
     );
 

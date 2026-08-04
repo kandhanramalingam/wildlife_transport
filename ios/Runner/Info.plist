@@ -26,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Capture vehicle and animal photos and videos for delivery records.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Record the delivery start location with the transport evidence.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record audio with animal loading and off-loading videos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Access delivery photos and videos selected for transport records.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>

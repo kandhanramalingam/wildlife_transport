@@ -4,6 +4,7 @@ import '../../features/auth/presentation/login_controller.dart';
 import '../../features/auth/presentation/session_controller.dart';
 import '../../features/delivery/data/delivery_remote_data_source.dart';
 import '../../features/delivery/data/delivery_repository_impl.dart';
+import '../../features/delivery/domain/delivery_repository.dart';
 import '../../features/delivery/presentation/today_deliveries_controller.dart';
 import '../../features/delivery/presentation/upcoming_deliveries_controller.dart';
 import '../../features/profile/data/profile_remote_data_source.dart';
@@ -28,15 +29,16 @@ class AppDependencies {
   }
 
   static TodayDeliveriesController createTodayDeliveriesController() {
-    final dataSource = DioDeliveryRemoteDataSource(apiClient.dio);
-    final repository = DeliveryRepositoryImpl(dataSource);
-    return TodayDeliveriesController(repository);
+    return TodayDeliveriesController(createDeliveryRepository());
   }
 
   static UpcomingDeliveriesController createUpcomingDeliveriesController() {
+    return UpcomingDeliveriesController(createDeliveryRepository());
+  }
+
+  static DeliveryRepository createDeliveryRepository() {
     final dataSource = DioDeliveryRemoteDataSource(apiClient.dio);
-    final repository = DeliveryRepositoryImpl(dataSource);
-    return UpcomingDeliveriesController(repository);
+    return DeliveryRepositoryImpl(dataSource);
   }
 
   static ProfileController createProfileController() {

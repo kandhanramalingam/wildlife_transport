@@ -1,6 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import '../../../../core/di/app_dependencies.dart';
+import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/delivery_repository.dart';
 import '../../models/delivery_model.dart';
+import '../../models/start_delivery_submission.dart';
 import 'steps/photos_step.dart';
 import 'steps/checklist_step.dart';
 import 'steps/game_loading_checklist_step.dart';
@@ -24,7 +30,17 @@ class StartDeliveryScreen extends StatefulWidget {
 
 class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
   final PageController _pageController = PageController();
+  late final DeliveryRepository _repository;
   int _currentStep = 0;
+  PhotosStepData? _photos;
+  List<DeliveryChecklistItem>? _vehicleChecklist;
+  List<DeliveryChecklistItem>? _gameLoadingChecklist;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository = AppDependencies.createDeliveryRepository();
+  }
 
   bool get _isArrival => widget.workflow == DeliveryWorkflow.arrival;
 
@@ -81,25 +97,37 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 PhotosStep(
-                  onNext: _goNext,
+                  onNext: (data) {
+                    _photos = data;
+                    _goNext();
+                  },
                   includeVehicleDetails: !_isArrival,
                   includeVehiclePhotos: !_isArrival,
                   isOffLoading: _isArrival,
                 ),
-                if (!_isArrival) ChecklistStep(onNext: _goNext),
+                if (!_isArrival)
+                  ChecklistStep(
+                    onNext: (items) {
+                      _vehicleChecklist = items;
+                      _goNext();
+                    },
+                  ),
                 GameLoadingChecklistStep(
-                  onNext: _goNext,
+                  onNext: (items) {
+                    _gameLoadingChecklist = items;
+                    _goNext();
+                  },
                   isOffLoading: _isArrival,
                 ),
                 SignatureStep(
                   onStartTrip: _finishWorkflow,
-                  buttonLabel: _isArrival ? 'Complete Delivery' : 'Start Trip',
+                  buttonLabel: _isArrival ? 'End Trip' : 'Start Trip',
                   clientSignatureOnly: _isArrival,
                   description: _isArrival
                       ? 'The client must sign to accept the animals’ health and quantities.'
                       : 'Obtain signatures from both officers before starting the trip.',
                   incompleteMessage: _isArrival
-                      ? 'The client signature is required to complete delivery'
+                      ? 'The client signature is required to end the trip'
                       : 'Both signatures are required to start the trip',
                 ),
               ],
@@ -110,8 +138,56 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
     );
   }
 
-  void _finishWorkflow() {
-    Navigator.of(context).pop(true);
+  Future<void> _finishWorkflow(
+    Uint8List managerSignature,
+    Uint8List? otherSignature,
+  ) async {
+    if (_isArrival) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+
+    final photos = _photos;
+    final vehicleChecklist = _vehicleChecklist;
+    final gameLoadingChecklist = _gameLoadingChecklist;
+    if (photos == null ||
+        vehicleChecklist == null ||
+        gameLoadingChecklist == null ||
+        otherSignature == null ||
+        photos.odometerReading == null) {
+      _showError('Some start-delivery details are missing. Please try again.');
+      return;
+    }
+
+    try {
+      await _repository.startDelivery(
+        widget.delivery.id,
+        StartDeliverySubmission(
+          startOdometerReading: photos.odometerReading!,
+          startVehiclePhotos: photos.vehiclePhotos,
+          startAnimalPhotos: photos.animalPhotos,
+          onLoadAnimalsVideo: photos.animalVideo,
+          startLatitude: photos.latitude,
+          startLongitude: photos.longitude,
+          vehicleChecklist: vehicleChecklist,
+          gameLoadingChecklist: gameLoadingChecklist,
+          managerSignature: managerSignature,
+          otherSignature: otherSignature,
+        ),
+      );
+      if (mounted) Navigator.of(context).pop(true);
+    } on Failure catch (failure) {
+      _showError(failure.message);
+    } catch (_) {
+      _showError('Could not start delivery. Please try again.');
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
   }
 
   Widget _buildStepper() {

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wildlife_transport/features/delivery/data/delivery_schedule_dto.dart';
+import 'package:wildlife_transport/features/delivery/models/delivery_model.dart';
 
 void main() {
   test('parses a today schedule response item', () {
@@ -18,5 +19,6 @@ void main() {
     expect(dto.buyerName, 'Buyer Name');
     expect(dto.scheduleDate.isUtc, isTrue);
     expect(dto.paymentStatus, isTrue);
+    expect(DeliveryStatus.fromApi(dto.deliveryStatus), DeliveryStatus.pending);
   });
 }

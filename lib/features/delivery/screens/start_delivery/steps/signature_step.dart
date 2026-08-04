@@ -4,7 +4,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../widgets/signature_pad_modal.dart';
 
 class SignatureStep extends StatefulWidget {
-  final VoidCallback onStartTrip;
+  final Future<void> Function(Uint8List manager, Uint8List? other) onStartTrip;
   final String buttonLabel;
   final String description;
   final String incompleteMessage;
@@ -27,6 +27,7 @@ class SignatureStep extends StatefulWidget {
 class _SignatureStepState extends State<SignatureStep> {
   Uint8List? _managerSignature;
   Uint8List? _officerSignature;
+  bool _isSubmitting = false;
 
   bool get _canStart => widget.clientSignatureOnly
       ? _managerSignature != null
@@ -47,8 +48,11 @@ class _SignatureStepState extends State<SignatureStep> {
     if (result != null) setState(() => onSave(result));
   }
 
-  void _startTrip() {
-    widget.onStartTrip();
+  Future<void> _startTrip() async {
+    if (_isSubmitting || !_canStart) return;
+    setState(() => _isSubmitting = true);
+    await widget.onStartTrip(_managerSignature!, _officerSignature);
+    if (mounted) setState(() => _isSubmitting = false);
   }
 
   @override
@@ -98,9 +102,18 @@ class _SignatureStepState extends State<SignatureStep> {
             width: double.infinity,
             height: 52,
             child: ElevatedButton.icon(
-              onPressed: _canStart ? _startTrip : null,
-              icon: const Icon(Icons.directions_car_outlined),
-              label: Text(widget.buttonLabel),
+              onPressed: _canStart && !_isSubmitting ? _startTrip : null,
+              icon: _isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.directions_car_outlined),
+              label: Text(_isSubmitting ? 'Uploading...' : widget.buttonLabel),
             ),
           ),
           if (!_canStart)

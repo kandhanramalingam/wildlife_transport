@@ -7,8 +7,26 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../models/photo_meta.dart';
 import '../widgets/photo_viewer_screen.dart';
 
+class PhotosStepData {
+  final int? odometerReading;
+  final List<XFile> vehiclePhotos;
+  final List<XFile> animalPhotos;
+  final XFile animalVideo;
+  final String latitude;
+  final String longitude;
+
+  const PhotosStepData({
+    required this.odometerReading,
+    required this.vehiclePhotos,
+    required this.animalPhotos,
+    required this.animalVideo,
+    required this.latitude,
+    required this.longitude,
+  });
+}
+
 class PhotosStep extends StatefulWidget {
-  final VoidCallback onNext;
+  final ValueChanged<PhotosStepData> onNext;
   final bool includeVehicleDetails;
   final bool includeVehiclePhotos;
   final bool isOffLoading;
@@ -31,18 +49,26 @@ class _PhotosStepState extends State<PhotosStep> {
   final List<PhotoMeta> _animalPhotos = [];
   final _picker = ImagePicker();
   XFile? _animalVideo;
+  String? _latitude;
+  String? _longitude;
   bool _isCapturing = false;
 
   bool get _canProceed =>
-      (!widget.includeVehicleDetails || _kmController.text.trim().isNotEmpty) &&
+      (!widget.includeVehicleDetails ||
+          (int.tryParse(_kmController.text.trim()) ?? -1) >= 0) &&
       (!widget.includeVehiclePhotos || _vehiclePhotos.isNotEmpty) &&
       _animalPhotos.isNotEmpty &&
-      _animalVideo != null;
+      _animalVideo != null &&
+      _latitude != null &&
+      _longitude != null;
 
-  Future<String> _fetchLocation() async {
+  Future<({String display, String? latitude, String? longitude})>
+  _fetchLocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return 'Location off';
+      if (!serviceEnabled) {
+        return (display: 'Location off', latitude: null, longitude: null);
+      }
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -50,7 +76,7 @@ class _PhotosStepState extends State<PhotosStep> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        return 'Permission denied';
+        return (display: 'Permission denied', latitude: null, longitude: null);
       }
 
       final pos = await Geolocator.getCurrentPosition(
@@ -61,9 +87,9 @@ class _PhotosStepState extends State<PhotosStep> {
       );
       final lat = pos.latitude.toStringAsFixed(5);
       final lng = pos.longitude.toStringAsFixed(5);
-      return '$lat°, $lng°';
+      return (display: '$lat°, $lng°', latitude: lat, longitude: lng);
     } catch (_) {
-      return 'Location unavailable';
+      return (display: 'Location unavailable', latitude: null, longitude: null);
     }
   }
 
@@ -84,9 +110,13 @@ class _PhotosStepState extends State<PhotosStep> {
             PhotoMeta(
               photo: photo,
               dateTime: DateTime.now(),
-              location: location,
+              location: location.display,
             ),
           );
+          if (location.latitude != null && location.longitude != null) {
+            _latitude = location.latitude;
+            _longitude = location.longitude;
+          }
           _isCapturing = false;
         });
       }
@@ -403,7 +433,24 @@ class _PhotosStepState extends State<PhotosStep> {
         width: double.infinity,
         height: 52,
         child: ElevatedButton(
-          onPressed: _canProceed ? widget.onNext : null,
+          onPressed: _canProceed
+              ? () => widget.onNext(
+                  PhotosStepData(
+                    odometerReading: widget.includeVehicleDetails
+                        ? int.parse(_kmController.text.trim())
+                        : null,
+                    vehiclePhotos: _vehiclePhotos
+                        .map((meta) => meta.photo)
+                        .toList(growable: false),
+                    animalPhotos: _animalPhotos
+                        .map((meta) => meta.photo)
+                        .toList(growable: false),
+                    animalVideo: _animalVideo!,
+                    latitude: _latitude!,
+                    longitude: _longitude!,
+                  ),
+                )
+              : null,
           child: const Text('Next'),
         ),
       ),

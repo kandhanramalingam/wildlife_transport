@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../models/start_delivery_submission.dart';
 
 class ChecklistStep extends StatefulWidget {
-  final VoidCallback onNext;
+  final ValueChanged<List<DeliveryChecklistItem>> onNext;
   const ChecklistStep({super.key, required this.onNext});
 
   @override
@@ -138,7 +139,18 @@ class _ChecklistStepState extends State<ChecklistStep> {
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: _allChecked ? widget.onNext : null,
+              onPressed: _allChecked
+                  ? () => widget.onNext(
+                      _items
+                          .map(
+                            (item) => DeliveryChecklistItem(
+                              item: item.title,
+                              checked: item.checked,
+                            ),
+                          )
+                          .toList(growable: false),
+                    )
+                  : null,
               child: const Text('Next'),
             ),
           ),
