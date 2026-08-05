@@ -26,6 +26,34 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       );
 
   @override
+  Future<List<DeliveryCustomer>> getDeliveryCustomers(String deliveryId) async {
+    try {
+      final customers = await _remoteDataSource.getDeliveryCustomers(
+        deliveryId,
+      );
+      return customers
+          .map(
+            (customer) => DeliveryCustomer(
+              clientName: customer.clientName,
+              buyerId: customer.buyerId,
+              completed: customer.completed,
+              mainBuyer: customer.mainBuyer,
+              deliveryId: customer.deliveryId,
+            ),
+          )
+          .toList(growable: false);
+    } on DioException catch (exception) {
+      throw mapDioException(exception);
+    } on Failure {
+      rethrow;
+    } on FormatException catch (exception) {
+      throw UnknownFailure(exception.message);
+    } on TypeError {
+      throw const UnknownFailure('Invalid customer response from server');
+    }
+  }
+
+  @override
   Future<void> startDelivery(
     String deliveryId,
     StartDeliverySubmission submission,

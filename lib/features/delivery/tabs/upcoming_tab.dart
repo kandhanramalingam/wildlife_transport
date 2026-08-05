@@ -96,15 +96,13 @@ class _UpcomingTabState extends State<UpcomingTab> {
   }
 
   Future<void> _openTripCustomers(DeliveryModel delivery) async {
-    final completedIds = await Navigator.of(context).push<List<String>>(
+    final allCustomersCompleted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => TripCustomersScreen(deliveries: [delivery]),
+        builder: (_) => TripCustomersScreen(delivery: delivery),
       ),
     );
-    if (completedIds == null || !mounted) return;
-    for (final deliveryId in completedIds) {
-      _controller.markDeliveryCompleted(deliveryId);
-    }
+    if (allCustomersCompleted != true || !mounted) return;
+    _controller.markDeliveryCompleted(delivery.id);
   }
 }
 

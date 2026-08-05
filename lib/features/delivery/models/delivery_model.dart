@@ -5,10 +5,36 @@ enum DeliveryStatus {
 
   factory DeliveryStatus.fromApi(String value) {
     return switch (value.toLowerCase()) {
-      'in_progress' || 'inprogress' => DeliveryStatus.inProgress,
+      'started' || 'in_progress' || 'inprogress' => DeliveryStatus.inProgress,
       'completed' => DeliveryStatus.completed,
       _ => DeliveryStatus.pending,
     };
+  }
+}
+
+class DeliveryCustomer {
+  final String clientName;
+  final String buyerId;
+  final bool completed;
+  final bool mainBuyer;
+  final String deliveryId;
+
+  const DeliveryCustomer({
+    required this.clientName,
+    required this.buyerId,
+    required this.completed,
+    required this.mainBuyer,
+    required this.deliveryId,
+  });
+
+  DeliveryCustomer copyWith({bool? completed}) {
+    return DeliveryCustomer(
+      clientName: clientName,
+      buyerId: buyerId,
+      completed: completed ?? this.completed,
+      mainBuyer: mainBuyer,
+      deliveryId: deliveryId,
+    );
   }
 }
 

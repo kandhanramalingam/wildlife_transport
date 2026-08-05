@@ -43,7 +43,8 @@ class PhotosStep extends StatefulWidget {
   State<PhotosStep> createState() => _PhotosStepState();
 }
 
-class _PhotosStepState extends State<PhotosStep> {
+class _PhotosStepState extends State<PhotosStep>
+    with AutomaticKeepAliveClientMixin<PhotosStep> {
   final _kmController = TextEditingController();
   final List<PhotoMeta> _vehiclePhotos = [];
   final List<PhotoMeta> _animalPhotos = [];
@@ -61,6 +62,9 @@ class _PhotosStepState extends State<PhotosStep> {
       _animalVideo != null &&
       _latitude != null &&
       _longitude != null;
+
+  @override
+  bool get wantKeepAlive => true;
 
   Future<({String display, String? latitude, String? longitude})>
   _fetchLocation() async {
@@ -156,6 +160,7 @@ class _PhotosStepState extends State<PhotosStep> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Stack(
       children: [
         Column(

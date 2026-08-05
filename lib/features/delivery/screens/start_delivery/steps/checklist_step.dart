@@ -10,7 +10,8 @@ class ChecklistStep extends StatefulWidget {
   State<ChecklistStep> createState() => _ChecklistStepState();
 }
 
-class _ChecklistStepState extends State<ChecklistStep> {
+class _ChecklistStepState extends State<ChecklistStep>
+    with AutomaticKeepAliveClientMixin<ChecklistStep> {
   final List<_CheckItem> _items = [
     _CheckItem('Check plotter in vehicle'),
     _CheckItem('Check odometer reading'),
@@ -52,7 +53,11 @@ class _ChecklistStepState extends State<ChecklistStep> {
   bool get _allChecked => _items.every((item) => item.checked);
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Column(
       children: [
         const Padding(

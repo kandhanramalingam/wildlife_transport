@@ -21,4 +21,23 @@ void main() {
     expect(dto.paymentStatus, isTrue);
     expect(DeliveryStatus.fromApi(dto.deliveryStatus), DeliveryStatus.pending);
   });
+
+  test('uses buyer id when buyer name is null and maps started status', () {
+    final dto = DeliveryScheduleDto.fromJson({
+      '_id': 'schedule-2',
+      'buyerId': '5150',
+      'buyerName': null,
+      'address': 'Delivery address',
+      'auctionId': 'auction-1',
+      'scheduleDate': '2026-08-04T12:11:00.000Z',
+      'deliveryStatus': 'started',
+      'paymentStatus': true,
+    });
+
+    expect(dto.buyerName, '5150');
+    expect(
+      DeliveryStatus.fromApi(dto.deliveryStatus),
+      DeliveryStatus.inProgress,
+    );
+  });
 }

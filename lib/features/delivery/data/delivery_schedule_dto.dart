@@ -23,7 +23,9 @@ class DeliveryScheduleDto {
     return DeliveryScheduleDto(
       id: json['_id'] as String,
       buyerId: json['buyerId'] as String,
-      buyerName: json['buyerName'] as String,
+      buyerName: (json['buyerName'] as String?)?.trim().isNotEmpty == true
+          ? (json['buyerName'] as String).trim()
+          : json['buyerId'].toString(),
       address: json['address'] as String,
       auctionId: json['auctionId'] as String,
       scheduleDate: DateTime.parse(json['scheduleDate'] as String),

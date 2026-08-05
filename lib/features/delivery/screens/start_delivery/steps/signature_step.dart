@@ -24,7 +24,8 @@ class SignatureStep extends StatefulWidget {
   State<SignatureStep> createState() => _SignatureStepState();
 }
 
-class _SignatureStepState extends State<SignatureStep> {
+class _SignatureStepState extends State<SignatureStep>
+    with AutomaticKeepAliveClientMixin<SignatureStep> {
   Uint8List? _managerSignature;
   Uint8List? _officerSignature;
   bool _isSubmitting = false;
@@ -32,6 +33,9 @@ class _SignatureStepState extends State<SignatureStep> {
   bool get _canStart => widget.clientSignatureOnly
       ? _managerSignature != null
       : _managerSignature != null && _officerSignature != null;
+
+  @override
+  bool get wantKeepAlive => true;
 
   Future<void> _openSignaturePad(
     String name,
@@ -57,6 +61,7 @@ class _SignatureStepState extends State<SignatureStep> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(

@@ -6,6 +6,7 @@ import '../models/start_delivery_submission.dart';
 abstract interface class DeliveryRepository {
   Future<List<DeliveryModel>> getTodaySchedule({CancelToken? cancelToken});
   Future<List<DeliveryModel>> getUpcomingSchedule({CancelToken? cancelToken});
+  Future<List<DeliveryCustomer>> getDeliveryCustomers(String deliveryId);
   Future<void> startDelivery(
     String deliveryId,
     StartDeliverySubmission submission,

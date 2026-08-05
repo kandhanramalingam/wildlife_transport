@@ -17,7 +17,8 @@ class GameLoadingChecklistStep extends StatefulWidget {
       _GameLoadingChecklistStepState();
 }
 
-class _GameLoadingChecklistStepState extends State<GameLoadingChecklistStep> {
+class _GameLoadingChecklistStepState extends State<GameLoadingChecklistStep>
+    with AutomaticKeepAliveClientMixin<GameLoadingChecklistStep> {
   late final List<_GameLoadingCheckItem> _items = widget.isOffLoading
       ? [
           _GameLoadingCheckItem(
@@ -89,7 +90,11 @@ class _GameLoadingChecklistStepState extends State<GameLoadingChecklistStep> {
   bool get _allChecked => _items.every((item) => item.checked);
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Column(
       children: [
         Padding(

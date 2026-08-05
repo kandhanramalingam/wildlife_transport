@@ -5,26 +5,39 @@ import '../models/delivery_model.dart';
 import 'start_delivery/start_delivery_screen.dart';
 
 class CustomerDetailsScreen extends StatelessWidget {
-  final DeliveryModel delivery;
-  final bool tripEnded;
+  final DeliveryCustomer customer;
+  final DeliveryModel parentDelivery;
 
   const CustomerDetailsScreen({
     super.key,
-    required this.delivery,
-    required this.tripEnded,
+    required this.customer,
+    required this.parentDelivery,
   });
+
+  DeliveryModel get _delivery => DeliveryModel(
+    id: customer.deliveryId,
+    buyerId: customer.buyerId,
+    auctionId: parentDelivery.auctionId,
+    dateTime: parentDelivery.dateTime,
+    clientName: customer.clientName,
+    clientAddress: parentDelivery.clientAddress,
+    status: customer.completed
+        ? DeliveryStatus.completed
+        : DeliveryStatus.inProgress,
+    paymentStatus: parentDelivery.paymentStatus,
+  );
 
   Future<void> _arrivedAtLocation(BuildContext context) async {
     final ended = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => StartDeliveryScreen(
-          delivery: delivery,
+          delivery: _delivery,
           workflow: DeliveryWorkflow.arrival,
         ),
       ),
     );
     if (ended == true && context.mounted) {
-      Navigator.of(context).pop(delivery.id);
+      Navigator.of(context).pop(customer.deliveryId);
     }
   }
 
@@ -45,13 +58,13 @@ class CustomerDetailsScreen extends StatelessWidget {
                       children: [
                         _DetailRow(
                           icon: Icons.person_outline,
-                          value: delivery.clientName,
+                          value: customer.clientName,
                           emphasized: true,
                         ),
                         const Divider(height: 32),
                         _DetailRow(
                           icon: Icons.location_on_outlined,
-                          value: delivery.clientAddress,
+                          value: parentDelivery.clientAddress,
                         ),
                       ],
                     ),
@@ -69,15 +82,17 @@ class CustomerDetailsScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton.icon(
-                  onPressed: tripEnded
+                  onPressed: customer.completed
                       ? null
                       : () => _arrivedAtLocation(context),
                   icon: Icon(
-                    tripEnded
+                    customer.completed
                         ? Icons.check_circle_outline
                         : Icons.location_on_outlined,
                   ),
-                  label: Text(tripEnded ? 'Trip Ended' : 'Arrived at Location'),
+                  label: Text(
+                    customer.completed ? 'Trip Ended' : 'Arrived at Location',
+                  ),
                 ),
               ),
             ),
