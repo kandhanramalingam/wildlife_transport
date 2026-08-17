@@ -26,35 +26,13 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       );
 
   @override
-  Future<List<DeliveryCustomer>> getDeliveryCustomers(String deliveryId) async {
-    try {
-      final customers = await _remoteDataSource.getDeliveryCustomers(
-        deliveryId,
-      );
-      return customers
-          .map(
-            (customer) => DeliveryCustomer(
-              clientName: customer.clientName,
-              buyerId: customer.buyerId,
-              completed: customer.completed,
-              mainBuyer: customer.mainBuyer,
-              deliveryId: customer.deliveryId,
-            ),
-          )
-          .toList(growable: false);
-    } on DioException catch (exception) {
-      throw mapDioException(exception);
-    } on Failure {
-      rethrow;
-    } on FormatException catch (exception) {
-      throw UnknownFailure(exception.message);
-    } on TypeError {
-      throw const UnknownFailure('Invalid customer response from server');
-    }
-  }
+  Future<void> startLoading(String deliveryId) => _runAction(
+    () => _remoteDataSource.startLoading(deliveryId),
+    fallbackMessage: 'Could not start loading',
+  );
 
   @override
-  Future<void> startDelivery(
+  Future<void> completeLoading(
     String deliveryId,
     StartDeliverySubmission submission,
   ) async {
@@ -102,7 +80,7 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         managerSignature: uploaded[1],
         otherSignature: uploaded[2],
       );
-      await _remoteDataSource.startDelivery(deliveryId, request.toJson());
+      await _remoteDataSource.completeLoading(deliveryId, request.toJson());
     } on DioException catch (exception) {
       throw mapDioException(exception);
     } on Failure {
@@ -111,6 +89,78 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       throw UnknownFailure(exception.message);
     } on TypeError {
       throw const UnknownFailure('Invalid response from server');
+    }
+  }
+
+  @override
+  Future<void> startTrip(
+    String deliveryId, {
+    required String latitude,
+    required String longitude,
+  }) => _runAction(
+    () => _remoteDataSource.startTrip(
+      deliveryId,
+      StartTripRequest(
+        startLatitude: latitude,
+        startLongitude: longitude,
+      ).toJson(),
+    ),
+    fallbackMessage: 'Could not start trip',
+  );
+
+  @override
+  Future<void> startOffloading(String deliveryId) => _runAction(
+    () => _remoteDataSource.startOffloading(deliveryId),
+    fallbackMessage: 'Could not start off-loading',
+  );
+
+  @override
+  Future<void> completeOffloading(
+    String deliveryId,
+    CompleteOffloadingSubmission submission,
+  ) async {
+    try {
+      final uploaded = await Future.wait([
+        _remoteDataSource.uploadVideo(
+          await submission.offLoadAnimalsVideo.readAsBytes(),
+          submission.offLoadAnimalsVideo.name,
+        ),
+        _remoteDataSource.uploadImage(
+          submission.clientSignature,
+          'client-signature.png',
+        ),
+      ]);
+      final request = CompleteOffloadingRequest(
+        offLoadAnimalsVideo: uploaded[0],
+        offLoadChecklist: submission.offLoadChecklist,
+        clientSignature: uploaded[1],
+        endOdometerReading: submission.endOdometerReading,
+        buyerId: submission.buyerId,
+      );
+      await _remoteDataSource.completeOffloading(deliveryId, request.toJson());
+    } on DioException catch (exception) {
+      throw mapDioException(exception);
+    } on Failure {
+      rethrow;
+    } on FormatException catch (exception) {
+      throw UnknownFailure(exception.message);
+    } on TypeError {
+      throw const UnknownFailure('Invalid response from server');
+    }
+  }
+
+  Future<void> _runAction(
+    Future<void> Function() action, {
+    required String fallbackMessage,
+  }) async {
+    try {
+      await action();
+    } on DioException catch (exception) {
+      throw mapDioException(exception);
+    } on Failure {
+      rethrow;
+    } catch (_) {
+      throw UnknownFailure(fallbackMessage);
     }
   }
 
@@ -130,6 +180,26 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
               clientAddress: dto.address,
               status: DeliveryStatus.fromApi(dto.deliveryStatus),
               paymentStatus: dto.paymentStatus,
+              invoicePath: dto.invoicePath,
+              lots: dto.lots
+                  .map(
+                    (lot) => DeliveryLot(
+                      clientName: lot.buyerName,
+                      buyerId: lot.buyerId,
+                      mainBuyer: lot.mainBuyer,
+                      deliveryId: lot.deliveryId,
+                      address: lot.address,
+                      farmName: lot.farmName,
+                      companyName: lot.companyName,
+                      contactNumber: lot.contactNumber,
+                      latitude: lot.latitude,
+                      longitude: lot.longitude,
+                      invoicePath: lot.invoicePath,
+                      loadingOrder: lot.loadingOrder,
+                      status: DeliveryStatus.fromApi(lot.deliveryStatus),
+                    ),
+                  )
+                  .toList(growable: false),
             ),
           )
           .toList(growable: false);

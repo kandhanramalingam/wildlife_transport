@@ -37,4 +37,38 @@ void main() {
       'otherSignature': 'uploads/images/other-signature.png',
     });
   });
+
+  test('serializes the start trip API payload', () {
+    const request = StartTripRequest(
+      startLatitude: '-25.746110',
+      startLongitude: '28.188060',
+    );
+
+    expect(request.toJson(), {
+      'startLatitude': '-25.746110',
+      'startLongitude': '28.188060',
+    });
+  });
+
+  test('serializes the complete off-loading API payload', () {
+    const request = CompleteOffloadingRequest(
+      offLoadAnimalsVideo: 'uploads/videos/off-loading.mp4',
+      offLoadChecklist: [
+        DeliveryChecklistItem(item: 'Confirm animal health', checked: true),
+      ],
+      clientSignature: 'uploads/images/client-signature.png',
+      endOdometerReading: 12820,
+      buyerId: '5150',
+    );
+
+    expect(request.toJson(), {
+      'offLoadAnimalsVideo': 'uploads/videos/off-loading.mp4',
+      'offLoadChecklist': [
+        {'item': 'Confirm animal health', 'checked': true},
+      ],
+      'clientSignature': 'uploads/images/client-signature.png',
+      'endOdometerReading': 12820,
+      'buyerId': '5150',
+    });
+  });
 }

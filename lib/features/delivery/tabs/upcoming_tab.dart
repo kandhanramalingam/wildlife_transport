@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/di/app_dependencies.dart';
+import '../../../core/error/failure.dart';
+import '../../../core/location/current_location.dart';
+import '../domain/delivery_repository.dart';
 import '../models/delivery_model.dart';
 import '../presentation/upcoming_deliveries_controller.dart';
 import '../screens/start_delivery/start_delivery_screen.dart';
@@ -16,10 +19,12 @@ class UpcomingTab extends StatefulWidget {
 
 class _UpcomingTabState extends State<UpcomingTab> {
   late final UpcomingDeliveriesController _controller;
+  late final DeliveryRepository _repository;
 
   @override
   void initState() {
     super.initState();
+    _repository = AppDependencies.createDeliveryRepository();
     _controller = AppDependencies.createUpcomingDeliveriesController()
       ..addListener(_onStateChanged)
       ..load();
@@ -69,40 +74,103 @@ class _UpcomingTabState extends State<UpcomingTab> {
           final delivery = _controller.deliveries[index];
           return DeliveryCard(
             delivery: delivery,
-            onStart: () => _onStartDelivery(delivery),
+            onStartLoading: (lot) => _startLoading(delivery, lot),
+            onStartTrip: () => _startTrip(delivery),
           );
         },
       ),
     );
   }
 
-  Future<void> _onStartDelivery(DeliveryModel delivery) async {
-    if (delivery.status == DeliveryStatus.inProgress) {
+  Future<void> _startLoading(DeliveryModel delivery, DeliveryLot lot) async {
+    final loadingOrder = delivery.nextLoadingOrder;
+    try {
+      if (lot.status != DeliveryStatus.loading) {
+        await _repository.startLoading(lot.deliveryId);
+        _controller.markLotLoadingStarted(delivery.id, lot.deliveryId);
+      }
+    } on Failure catch (failure) {
+      _showError(failure.message);
+      return;
+    } catch (_) {
+      _showError('Could not start loading. Please try again.');
+      return;
+    }
+    if (!mounted) return;
+
+    final loaded = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => StartDeliveryScreen(
+          delivery: DeliveryModel(
+            id: lot.deliveryId,
+            buyerId: lot.buyerId,
+            auctionId: delivery.auctionId,
+            dateTime: delivery.dateTime,
+            clientName: lot.clientName,
+            clientAddress: lot.address,
+            paymentStatus: delivery.paymentStatus,
+          ),
+        ),
+      ),
+    );
+    if (loaded != true || !mounted) return;
+    _controller.markLotLoaded(
+      delivery.id,
+      lot.deliveryId,
+      loadingOrder: loadingOrder,
+    );
+  }
+
+  Future<void> _startTrip(DeliveryModel delivery) async {
+    if (delivery.tripStarted) {
       await _openTripCustomers(delivery);
       return;
     }
+    if (!delivery.allLotsLoaded) return;
+    try {
+      final coordinates = await getCurrentCoordinates();
+      await _repository.startTrip(
+        delivery.id,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      );
+    } on CurrentLocationException catch (exception) {
+      _showError(exception.message);
+      return;
+    } on Failure catch (failure) {
+      _showError(failure.message);
+      return;
+    } catch (_) {
+      _showError('Could not start the trip. Please try again.');
+      return;
+    }
+    if (!mounted) return;
 
-    final tripStarted = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => StartDeliveryScreen(delivery: delivery),
-      ),
-    );
-
-    if (tripStarted != true || !mounted) return;
     _controller.markTripStarted(delivery.id);
     await _openTripCustomers(
       delivery.copyWith(status: DeliveryStatus.inProgress),
     );
   }
 
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
   Future<void> _openTripCustomers(DeliveryModel delivery) async {
-    final allCustomersCompleted = await Navigator.of(context).push<bool>(
+    final updatedLots = await Navigator.of(context).push<List<DeliveryLot>>(
       MaterialPageRoute(
         builder: (_) => TripCustomersScreen(delivery: delivery),
       ),
     );
-    if (allCustomersCompleted != true || !mounted) return;
-    _controller.markDeliveryCompleted(delivery.id);
+    if (updatedLots == null || !mounted) return;
+    _controller.updateLots(delivery.id, updatedLots);
+    if (updatedLots.isNotEmpty &&
+        updatedLots.every((lot) => lot.deliveryCompleted)) {
+      _controller.markDeliveryCompleted(delivery.id);
+    }
   }
 }
 

@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 
-import 'delivery_customer_dto.dart';
 import 'delivery_schedule_dto.dart';
 
 abstract interface class DeliveryRemoteDataSource {
@@ -10,10 +9,13 @@ abstract interface class DeliveryRemoteDataSource {
   Future<List<DeliveryScheduleDto>> getUpcomingSchedule({
     CancelToken? cancelToken,
   });
-  Future<List<DeliveryCustomerDto>> getDeliveryCustomers(String deliveryId);
   Future<String> uploadImage(List<int> bytes, String filename);
   Future<String> uploadVideo(List<int> bytes, String filename);
-  Future<void> startDelivery(String deliveryId, Map<String, dynamic> body);
+  Future<void> startLoading(String deliveryId);
+  Future<void> completeLoading(String deliveryId, Map<String, dynamic> body);
+  Future<void> startTrip(String deliveryId, Map<String, dynamic> body);
+  Future<void> startOffloading(String deliveryId);
+  Future<void> completeOffloading(String deliveryId, Map<String, dynamic> body);
 }
 
 class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
@@ -30,22 +32,6 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
   Future<List<DeliveryScheduleDto>> getUpcomingSchedule({
     CancelToken? cancelToken,
   }) => _getSchedule('driver-auth/schedule/upcoming', cancelToken);
-
-  @override
-  Future<List<DeliveryCustomerDto>> getDeliveryCustomers(
-    String deliveryId,
-  ) async {
-    final response = await _dio.get<List<dynamic>>(
-      'buyer-delivery/customer/$deliveryId',
-    );
-    final data = response.data;
-    if (data == null) throw const FormatException('Empty customer response');
-    return data
-        .map(
-          (item) => DeliveryCustomerDto.fromJson(item as Map<String, dynamic>),
-        )
-        .toList(growable: false);
-  }
 
   @override
   Future<String> uploadImage(List<int> bytes, String filename) =>
@@ -74,11 +60,43 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
   }
 
   @override
-  Future<void> startDelivery(
+  Future<void> startLoading(String deliveryId) async {
+    await _dio.post<void>('driver-auth/delivery/$deliveryId/start-loading');
+  }
+
+  @override
+  Future<void> completeLoading(
     String deliveryId,
     Map<String, dynamic> body,
   ) async {
-    await _dio.post<void>('driver-auth/delivery/$deliveryId/start', data: body);
+    await _dio.post<void>(
+      'driver-auth/delivery/$deliveryId/complete-loading',
+      data: body,
+    );
+  }
+
+  @override
+  Future<void> startTrip(String deliveryId, Map<String, dynamic> body) async {
+    await _dio.post<void>(
+      'driver-auth/delivery/$deliveryId/start-trip',
+      data: body,
+    );
+  }
+
+  @override
+  Future<void> startOffloading(String deliveryId) async {
+    await _dio.post<void>('driver-auth/delivery/$deliveryId/start-offloading');
+  }
+
+  @override
+  Future<void> completeOffloading(
+    String deliveryId,
+    Map<String, dynamic> body,
+  ) async {
+    await _dio.post<void>(
+      'driver-auth/delivery/$deliveryId/complete-offloading',
+      data: body,
+    );
   }
 
   Future<List<DeliveryScheduleDto>> _getSchedule(

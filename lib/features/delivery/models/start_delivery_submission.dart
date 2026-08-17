@@ -77,3 +77,58 @@ class StartDeliveryRequest {
     'otherSignature': otherSignature,
   };
 }
+
+class StartTripRequest {
+  final String startLatitude;
+  final String startLongitude;
+
+  const StartTripRequest({
+    required this.startLatitude,
+    required this.startLongitude,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'startLatitude': startLatitude,
+    'startLongitude': startLongitude,
+  };
+}
+
+class CompleteOffloadingSubmission {
+  final XFile offLoadAnimalsVideo;
+  final List<DeliveryChecklistItem> offLoadChecklist;
+  final Uint8List clientSignature;
+  final int endOdometerReading;
+  final String buyerId;
+
+  const CompleteOffloadingSubmission({
+    required this.offLoadAnimalsVideo,
+    required this.offLoadChecklist,
+    required this.clientSignature,
+    required this.endOdometerReading,
+    required this.buyerId,
+  });
+}
+
+class CompleteOffloadingRequest {
+  final String offLoadAnimalsVideo;
+  final List<DeliveryChecklistItem> offLoadChecklist;
+  final String clientSignature;
+  final int endOdometerReading;
+  final String buyerId;
+
+  const CompleteOffloadingRequest({
+    required this.offLoadAnimalsVideo,
+    required this.offLoadChecklist,
+    required this.clientSignature,
+    required this.endOdometerReading,
+    required this.buyerId,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'offLoadAnimalsVideo': offLoadAnimalsVideo,
+    'offLoadChecklist': offLoadChecklist.map((item) => item.toJson()).toList(),
+    'clientSignature': clientSignature,
+    'endOdometerReading': endOdometerReading,
+    'buyerId': buyerId,
+  };
+}

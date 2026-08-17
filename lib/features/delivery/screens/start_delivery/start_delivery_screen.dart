@@ -45,11 +45,11 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
   bool get _isArrival => widget.workflow == DeliveryWorkflow.arrival;
 
   List<String> get _stepTitles => _isArrival
-      ? ['Photos', 'Off Loading\nChecking', 'Client\nSignature']
+      ? ['Off Loading\nChecklist', 'Video &\nOdometer', 'Client\nSignature']
       : [
-          'Photos',
           'Vehicle\nChecklist',
           'Game Loading\nChecklist',
+          'Photos',
           'Signatures',
         ];
 
@@ -96,15 +96,6 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
               children: [
-                PhotosStep(
-                  onNext: (data) {
-                    _photos = data;
-                    _goNext();
-                  },
-                  includeVehicleDetails: !_isArrival,
-                  includeVehiclePhotos: !_isArrival,
-                  isOffLoading: _isArrival,
-                ),
                 if (!_isArrival)
                   ChecklistStep(
                     onNext: (items) {
@@ -119,16 +110,30 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
                   },
                   isOffLoading: _isArrival,
                 ),
+                PhotosStep(
+                  onNext: (data) {
+                    _photos = data;
+                    _goNext();
+                  },
+                  includeVehicleDetails: true,
+                  includeVehiclePhotos: !_isArrival,
+                  includeAnimalPhotos: !_isArrival,
+                  requireLocation: !_isArrival,
+                  isOffLoading: _isArrival,
+                ),
                 SignatureStep(
                   onStartTrip: _finishWorkflow,
-                  buttonLabel: _isArrival ? 'End Trip' : 'Start Trip',
-                  clientSignatureOnly: _isArrival,
+                  buttonLabel: _isArrival
+                      ? 'Complete Off-loading'
+                      : 'Complete Loading',
+                  offLoadingSignatures: _isArrival,
+                  requireOtherSignature: !_isArrival,
                   description: _isArrival
-                      ? 'The client must sign to accept the animals’ health and quantities.'
-                      : 'Obtain signatures from both officers before starting the trip.',
+                      ? 'The client must sign to confirm the animals’ health and quantities.'
+                      : 'Obtain signatures from both officers to complete this lot’s loading.',
                   incompleteMessage: _isArrival
-                      ? 'The client signature is required to end the trip'
-                      : 'Both signatures are required to start the trip',
+                      ? 'The client signature is required to complete off-loading'
+                      : 'Both signatures are required to complete loading',
                 ),
               ],
             ),
@@ -143,7 +148,33 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
     Uint8List? otherSignature,
   ) async {
     if (_isArrival) {
-      Navigator.of(context).pop(true);
+      final photos = _photos;
+      final offLoadChecklist = _gameLoadingChecklist;
+      final buyerId = widget.delivery.buyerId?.trim() ?? '';
+      if (photos == null ||
+          offLoadChecklist == null ||
+          photos.odometerReading == null ||
+          buyerId.isEmpty) {
+        _showError('Some off-loading details are missing. Please try again.');
+        return;
+      }
+      try {
+        await _repository.completeOffloading(
+          widget.delivery.id,
+          CompleteOffloadingSubmission(
+            offLoadAnimalsVideo: photos.animalVideo,
+            offLoadChecklist: offLoadChecklist,
+            clientSignature: managerSignature,
+            endOdometerReading: photos.odometerReading!,
+            buyerId: buyerId,
+          ),
+        );
+        if (mounted) Navigator.of(context).pop(true);
+      } on Failure catch (failure) {
+        _showError(failure.message);
+      } catch (_) {
+        _showError('Could not complete off-loading. Please try again.');
+      }
       return;
     }
 
@@ -160,7 +191,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
     }
 
     try {
-      await _repository.startDelivery(
+      await _repository.completeLoading(
         widget.delivery.id,
         StartDeliverySubmission(
           startOdometerReading: photos.odometerReading!,
@@ -179,7 +210,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
     } on Failure catch (failure) {
       _showError(failure.message);
     } catch (_) {
-      _showError('Could not start delivery. Please try again.');
+      _showError('Could not complete loading. Please try again.');
     }
   }
 

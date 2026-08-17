@@ -44,8 +44,71 @@ class UpcomingDeliveriesController extends ChangeNotifier {
     _updateStatus(deliveryId, DeliveryStatus.inProgress);
   }
 
+  void markLotLoadingStarted(String deliveryId, String lotDeliveryId) {
+    _updateLotStatus(deliveryId, lotDeliveryId, DeliveryStatus.loading);
+  }
+
+  void markLotLoaded(
+    String deliveryId,
+    String lotDeliveryId, {
+    required int loadingOrder,
+  }) {
+    final index = deliveries.indexWhere((item) => item.id == deliveryId);
+    if (index == -1) return;
+
+    final updated = List<DeliveryModel>.of(deliveries);
+    final delivery = updated[index];
+    updated[index] = delivery.copyWith(
+      lots: delivery.lots
+          .map(
+            (lot) => lot.deliveryId == lotDeliveryId
+                ? lot.copyWith(
+                    status: DeliveryStatus.loadingCompleted,
+                    loadingOrder: loadingOrder,
+                  )
+                : lot,
+          )
+          .toList(growable: false),
+    );
+    deliveries = List.unmodifiable(updated);
+    notifyListeners();
+  }
+
+  void _updateLotStatus(
+    String deliveryId,
+    String lotDeliveryId,
+    DeliveryStatus status,
+  ) {
+    final index = deliveries.indexWhere((item) => item.id == deliveryId);
+    if (index == -1) return;
+
+    final updated = List<DeliveryModel>.of(deliveries);
+    final delivery = updated[index];
+    updated[index] = delivery.copyWith(
+      lots: delivery.lots
+          .map(
+            (lot) => lot.deliveryId == lotDeliveryId
+                ? lot.copyWith(status: status)
+                : lot,
+          )
+          .toList(growable: false),
+    );
+    deliveries = List.unmodifiable(updated);
+    notifyListeners();
+  }
+
   void markDeliveryCompleted(String deliveryId) {
     _updateStatus(deliveryId, DeliveryStatus.completed);
+  }
+
+  void updateLots(String deliveryId, List<DeliveryLot> lots) {
+    final index = deliveries.indexWhere((item) => item.id == deliveryId);
+    if (index == -1) return;
+
+    final updated = List<DeliveryModel>.of(deliveries);
+    updated[index] = updated[index].copyWith(lots: List.unmodifiable(lots));
+    deliveries = List.unmodifiable(updated);
+    notifyListeners();
   }
 
   void _updateStatus(String deliveryId, DeliveryStatus status) {

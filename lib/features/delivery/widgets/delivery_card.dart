@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/delivery_model.dart';
+import 'client_contact_row.dart';
 
 class DeliveryCard extends StatelessWidget {
   final DeliveryModel delivery;
-  final VoidCallback onStart;
+  final ValueChanged<DeliveryLot> onStartLoading;
+  final VoidCallback onStartTrip;
 
   const DeliveryCard({
     super.key,
     required this.delivery,
-    required this.onStart,
+    required this.onStartLoading,
+    required this.onStartTrip,
   });
 
   @override
@@ -28,9 +31,14 @@ class DeliveryCard extends StatelessWidget {
             const SizedBox(height: 12),
             _buildDivider(),
             const SizedBox(height: 12),
-            _buildClientInfo(),
-            const SizedBox(height: 12),
-            _buildStartButton(),
+            ...delivery.lots.asMap().entries.expand((entry) sync* {
+              if (entry.key > 0) {
+                yield const Divider(height: 25, color: Color(0xFFEEEEEE));
+              }
+              yield _buildLot(entry.value);
+            }),
+            const SizedBox(height: 16),
+            _buildTripButton(),
           ],
         ),
       ),
@@ -72,7 +80,11 @@ class DeliveryCard extends StatelessWidget {
     return const Divider(height: 1, color: Color(0xFFEEEEEE));
   }
 
-  Widget _buildClientInfo() {
+  Widget _buildLot(DeliveryLot lot) {
+    final loaded = lot.loadingCompleted;
+    final loadingStarted = lot.status == DeliveryStatus.loading;
+    final deliveryCompleted =
+        delivery.status == DeliveryStatus.completed || lot.deliveryCompleted;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -87,7 +99,7 @@ class DeliveryCard extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                delivery.clientName,
+                lot.clientName,
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -97,55 +109,122 @@ class DeliveryCard extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(
-              Icons.location_on_outlined,
-              size: 18,
-              color: AppTheme.textSecondary,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                delivery.clientAddress,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                  height: 1.4,
+        if (lot.address.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.location_on_outlined,
+                size: 18,
+                color: AppTheme.textSecondary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  lot.address,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                    height: 1.4,
+                  ),
                 ),
               ),
+            ],
+          ),
+        ],
+        if (lot.farmName.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildDetailRow(Icons.agriculture_outlined, 'Farm: ${lot.farmName}'),
+        ],
+        if (lot.companyName.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildDetailRow(
+            Icons.business_outlined,
+            'Company: ${lot.companyName}',
+          ),
+        ],
+        if (lot.contactNumber.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          ClientContactRow(contactNumber: lot.contactNumber),
+        ],
+        if (lot.latitude.isNotEmpty || lot.longitude.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildDetailRow(
+            Icons.my_location_outlined,
+            [
+              if (lot.latitude.isNotEmpty) 'Lat: ${lot.latitude}',
+              if (lot.longitude.isNotEmpty) 'Long: ${lot.longitude}',
+            ].join('  •  '),
+          ),
+        ],
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          height: 42,
+          child: OutlinedButton.icon(
+            onPressed: loaded || deliveryCompleted
+                ? null
+                : () => onStartLoading(lot),
+            icon: Icon(
+              loaded || deliveryCompleted
+                  ? Icons.check_circle_outline
+                  : Icons.inventory_2_outlined,
             ),
-          ],
+            label: Text(
+              deliveryCompleted
+                  ? 'Delivery Completed'
+                  : loaded
+                  ? 'Loading Completed'
+                  : loadingStarted
+                  ? 'Continue Loading'
+                  : 'Start Loading',
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildStartButton() {
-    final tripStarted = delivery.status == DeliveryStatus.inProgress;
+  Widget _buildDetailRow(IconData icon, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: AppTheme.textSecondary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondary,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTripButton() {
+    final tripStarted = delivery.tripStarted;
     final completed = delivery.status == DeliveryStatus.completed;
+    final canStartTrip = delivery.allLotsLoaded;
+    final showDeliveryProgress = tripStarted || completed;
 
     return SizedBox(
       width: double.infinity,
       height: 44,
       child: ElevatedButton.icon(
-        onPressed: completed ? null : onStart,
+        onPressed: completed || (!tripStarted && !canStartTrip)
+            ? null
+            : onStartTrip,
         icon: Icon(
-          completed
-              ? Icons.task_alt
-              : tripStarted
-              ? Icons.route_outlined
-              : Icons.play_arrow_rounded,
+          showDeliveryProgress ? Icons.task_alt : Icons.play_arrow_rounded,
           size: 20,
         ),
         label: Text(
-          completed
-              ? 'Delivery Completed'
-              : tripStarted
-              ? 'Trip Started'
-              : 'Start Delivery',
+          showDeliveryProgress ? delivery.deliveryProgressLabel : 'Start Trip',
         ),
       ),
     );

@@ -29,6 +29,8 @@ class PhotosStep extends StatefulWidget {
   final ValueChanged<PhotosStepData> onNext;
   final bool includeVehicleDetails;
   final bool includeVehiclePhotos;
+  final bool includeAnimalPhotos;
+  final bool requireLocation;
   final bool isOffLoading;
 
   const PhotosStep({
@@ -36,6 +38,8 @@ class PhotosStep extends StatefulWidget {
     required this.onNext,
     this.includeVehicleDetails = true,
     this.includeVehiclePhotos = true,
+    this.includeAnimalPhotos = true,
+    this.requireLocation = true,
     this.isOffLoading = false,
   });
 
@@ -58,10 +62,9 @@ class _PhotosStepState extends State<PhotosStep>
       (!widget.includeVehicleDetails ||
           (int.tryParse(_kmController.text.trim()) ?? -1) >= 0) &&
       (!widget.includeVehiclePhotos || _vehiclePhotos.isNotEmpty) &&
-      _animalPhotos.isNotEmpty &&
+      (!widget.includeAnimalPhotos || _animalPhotos.isNotEmpty) &&
       _animalVideo != null &&
-      _latitude != null &&
-      _longitude != null;
+      (!widget.requireLocation || (_latitude != null && _longitude != null));
 
   @override
   bool get wantKeepAlive => true;
@@ -172,14 +175,20 @@ class _PhotosStepState extends State<PhotosStep>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (widget.includeVehicleDetails) ...[
-                      _sectionHeader('Vehicle Details'),
+                      _sectionHeader(
+                        widget.isOffLoading
+                            ? 'End Odometer Reading'
+                            : 'Vehicle Details',
+                      ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _kmController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Odometer Reading (KM)',
-                          prefixIcon: Icon(Icons.speed_outlined),
+                        decoration: InputDecoration(
+                          labelText: widget.isOffLoading
+                              ? 'End Odometer Reading (KM)'
+                              : 'Start Odometer Reading (KM)',
+                          prefixIcon: const Icon(Icons.speed_outlined),
                         ),
                         onChanged: (_) => setState(() {}),
                       ),
@@ -202,23 +211,25 @@ class _PhotosStepState extends State<PhotosStep>
                       ),
                       const SizedBox(height: 24),
                     ],
-                    _sectionHeader('Animal Photos'),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.isOffLoading
-                          ? 'Take photos of all animals on the truck before off-loading'
-                          : 'Capture photos of the animals before transport',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
+                    if (widget.includeAnimalPhotos) ...[
+                      _sectionHeader('Animal Photos'),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.isOffLoading
+                            ? 'Take photos of all animals on the truck before off-loading'
+                            : 'Capture photos of the animals before transport',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    _photoGrid(
-                      photos: _animalPhotos,
-                      onAdd: () => _capturePhoto(_animalPhotos),
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 10),
+                      _photoGrid(
+                        photos: _animalPhotos,
+                        onAdd: () => _capturePhoto(_animalPhotos),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
                     _sectionHeader('Animal Video Clip'),
                     const SizedBox(height: 4),
                     Text(
@@ -451,8 +462,8 @@ class _PhotosStepState extends State<PhotosStep>
                         .map((meta) => meta.photo)
                         .toList(growable: false),
                     animalVideo: _animalVideo!,
-                    latitude: _latitude!,
-                    longitude: _longitude!,
+                    latitude: _latitude ?? '',
+                    longitude: _longitude ?? '',
                   ),
                 )
               : null,

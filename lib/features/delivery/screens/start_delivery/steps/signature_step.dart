@@ -8,7 +8,8 @@ class SignatureStep extends StatefulWidget {
   final String buttonLabel;
   final String description;
   final String incompleteMessage;
-  final bool clientSignatureOnly;
+  final bool offLoadingSignatures;
+  final bool requireOtherSignature;
 
   const SignatureStep({
     super.key,
@@ -17,7 +18,8 @@ class SignatureStep extends StatefulWidget {
     this.description =
         'Obtain signatures from both officers before starting the trip.',
     this.incompleteMessage = 'Both signatures are required to start the trip',
-    this.clientSignatureOnly = false,
+    this.offLoadingSignatures = false,
+    this.requireOtherSignature = true,
   });
 
   @override
@@ -30,9 +32,9 @@ class _SignatureStepState extends State<SignatureStep>
   Uint8List? _officerSignature;
   bool _isSubmitting = false;
 
-  bool get _canStart => widget.clientSignatureOnly
-      ? _managerSignature != null
-      : _managerSignature != null && _officerSignature != null;
+  bool get _canStart =>
+      _managerSignature != null &&
+      (!widget.requireOtherSignature || _officerSignature != null);
 
   @override
   bool get wantKeepAlive => true;
@@ -82,24 +84,28 @@ class _SignatureStepState extends State<SignatureStep>
           ),
           const SizedBox(height: 20),
           _SignatureCard(
-            title: widget.clientSignatureOnly ? 'Client' : 'Manager',
-            subtitle: widget.clientSignatureOnly
+            title: widget.offLoadingSignatures ? 'Client' : 'Manager',
+            subtitle: widget.offLoadingSignatures
                 ? 'Person accepting the game'
                 : 'Transport Manager',
             signature: _managerSignature,
             onTap: () => _openSignaturePad(
-              widget.clientSignatureOnly ? 'Client' : 'Manager',
+              widget.offLoadingSignatures ? 'Client' : 'Manager',
               (s) => _managerSignature = s,
             ),
           ),
-          if (!widget.clientSignatureOnly) ...[
+          if (widget.requireOtherSignature) ...[
             const SizedBox(height: 16),
             _SignatureCard(
-              title: 'Officer',
-              subtitle: 'Supervising Officer',
+              title: widget.offLoadingSignatures ? 'Driver' : 'Officer',
+              subtitle: widget.offLoadingSignatures
+                  ? 'Driver completing the delivery'
+                  : 'Supervising Officer',
               signature: _officerSignature,
-              onTap: () =>
-                  _openSignaturePad('Officer', (s) => _officerSignature = s),
+              onTap: () => _openSignaturePad(
+                widget.offLoadingSignatures ? 'Driver' : 'Officer',
+                (s) => _officerSignature = s,
+              ),
             ),
           ],
           const SizedBox(height: 32),
