@@ -25,10 +25,6 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
   String? _activeCustomerDeliveryId;
   String? _startingOffloadingDeliveryId;
 
-  bool get _allCompleted =>
-      _customers.isNotEmpty &&
-      _customers.every((customer) => customer.deliveryCompleted);
-
   @override
   void initState() {
     super.initState();
@@ -69,6 +65,21 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
     }
 
     if (_activeCustomerDeliveryId == null) {
+      if (_startingOffloadingDeliveryId == customer.deliveryId) return;
+      setState(() => _startingOffloadingDeliveryId = customer.deliveryId);
+      try {
+        await (_repository ??= AppDependencies.createDeliveryRepository())
+            .atDeliveryLocation(customer.deliveryId);
+      } on Failure catch (failure) {
+        _showError(failure.message);
+        return;
+      } catch (_) {
+        _showError('Could not update the arrival status. Please try again.');
+        return;
+      } finally {
+        if (mounted) setState(() => _startingOffloadingDeliveryId = null);
+      }
+      if (!mounted) return;
       setState(() {
         _activeCustomerDeliveryId = customer.deliveryId;
         _customers = _customers
@@ -142,16 +153,10 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
           )
           .toList(growable: false);
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _allCompleted
-              ? 'All customer deliveries completed.'
-              : 'Customer delivery completed. Continue to the next customer.',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+
+    // Return the updated lots immediately so the delivery list can update its
+    // progress without requiring the driver to back out or refresh manually.
+    _close();
   }
 
   void _close() {

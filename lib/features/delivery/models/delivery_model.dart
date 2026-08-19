@@ -17,10 +17,14 @@ enum DeliveryStatus {
         .toLowerCase()
         .replaceAll(RegExp(r'[-\s]+'), '_');
     return switch (normalized) {
-      'loading_started' || 'loading' => DeliveryStatus.loading,
+      'loading_started' ||
+      'loading_in_progress' ||
+      'loading' => DeliveryStatus.loading,
       'loading_completed' || 'loaded' => DeliveryStatus.loadingCompleted,
       'started' ||
+      'ongoing' ||
       'trip_started' ||
+      'in_delivery' ||
       'in_progress' ||
       'inprogress' => DeliveryStatus.inProgress,
       'arrived' ||
@@ -28,6 +32,7 @@ enum DeliveryStatus {
       'at_delivery_point' => DeliveryStatus.atDeliveryPoint,
       'offloading_started' ||
       'off_loading_started' ||
+      'ended' ||
       'offloading' => DeliveryStatus.offloading,
       'offloading_completed' ||
       'off_loading_completed' ||
@@ -35,6 +40,26 @@ enum DeliveryStatus {
       _ => DeliveryStatus.pending,
     };
   }
+}
+
+/// Values accepted by PATCH /driver-auth/delivery/{id}/status.
+enum DeliveryStatusUpdate {
+  pending('pending'),
+  ready('ready'),
+  started('started'),
+  ongoing('ongoing'),
+  ended('ended'),
+  completed('completed'),
+  hold('hold'),
+  loadingInProgress('loading_in_progress'),
+  loadingCompleted('loading_completed'),
+  inDelivery('in_delivery'),
+  arrivedAtLocation('arrived_at_location'),
+  offloadingStarted('offloading_started');
+
+  final String apiValue;
+
+  const DeliveryStatusUpdate(this.apiValue);
 }
 
 class DeliveryLot {
@@ -138,6 +163,10 @@ class DeliveryModel {
   bool get allLotsLoaded =>
       lots.isEmpty || lots.every((lot) => lot.loadingCompleted);
 
+  bool get deliveryCompleted =>
+      status == DeliveryStatus.completed ||
+      (lots.isNotEmpty && lots.every((lot) => lot.deliveryCompleted));
+
   bool get tripStarted =>
       (status == DeliveryStatus.inProgress ||
           status == DeliveryStatus.atDeliveryPoint ||
@@ -168,7 +197,7 @@ class DeliveryModel {
 
   int get deliveryCount => lots.isEmpty ? 1 : lots.length;
 
-  int get completedDeliveryCount => status == DeliveryStatus.completed
+  int get completedDeliveryCount => deliveryCompleted
       ? deliveryCount
       : lots.where((lot) => lot.deliveryCompleted).length;
 

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wildlife_transport/features/delivery/data/delivery_remote_data_source.dart';
+import 'package:wildlife_transport/features/delivery/models/delivery_model.dart';
 
 void main() {
   test(
@@ -20,30 +21,22 @@ void main() {
       );
       final dataSource = DioDeliveryRemoteDataSource(dio);
 
-      await dataSource.startLoading('delivery-1');
-      await dataSource.completeLoading('delivery-1', {'loading': true});
-      await dataSource.startTrip('delivery-1', {
-        'startLatitude': '-25.7',
-        'startLongitude': '28.1',
-      });
-      await dataSource.startOffloading('delivery-1');
-      await dataSource.completeOffloading('delivery-1', {'offloading': true});
+      await dataSource.updateStatus(
+        'delivery-1',
+        DeliveryStatusUpdate.loadingInProgress,
+      );
+      await dataSource.startDelivery('delivery-1', {'loading': true});
+      await dataSource.endDelivery('delivery-1', {'offloading': true});
 
       expect(requests.map((request) => request.path), [
-        'driver-auth/delivery/delivery-1/start-loading',
-        'driver-auth/delivery/delivery-1/complete-loading',
-        'driver-auth/delivery/delivery-1/start-trip',
-        'driver-auth/delivery/delivery-1/start-offloading',
-        'driver-auth/delivery/delivery-1/complete-offloading',
+        'driver-auth/delivery/delivery-1/status',
+        'driver-auth/delivery/delivery-1/start',
+        'driver-auth/delivery/delivery-1/end',
       ]);
-      expect(requests[0].data, isNull);
+      expect(requests[0].method, 'PATCH');
+      expect(requests[0].data, {'status': 'loading_in_progress'});
       expect(requests[1].data, {'loading': true});
-      expect(requests[2].data, {
-        'startLatitude': '-25.7',
-        'startLongitude': '28.1',
-      });
-      expect(requests[3].data, isNull);
-      expect(requests[4].data, {'offloading': true});
+      expect(requests[2].data, {'offloading': true});
     },
   );
 }

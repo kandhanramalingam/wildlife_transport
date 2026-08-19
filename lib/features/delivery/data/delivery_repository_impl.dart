@@ -26,10 +26,15 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       );
 
   @override
-  Future<void> startLoading(String deliveryId) => _runAction(
-    () => _remoteDataSource.startLoading(deliveryId),
-    fallbackMessage: 'Could not start loading',
-  );
+  Future<void> updateStatus(String deliveryId, DeliveryStatusUpdate status) =>
+      _runAction(
+        () => _remoteDataSource.updateStatus(deliveryId, status),
+        fallbackMessage: 'Could not update delivery status',
+      );
+
+  @override
+  Future<void> startLoading(String deliveryId) =>
+      updateStatus(deliveryId, DeliveryStatusUpdate.loadingInProgress);
 
   @override
   Future<void> completeLoading(
@@ -80,7 +85,11 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         managerSignature: uploaded[1],
         otherSignature: uploaded[2],
       );
-      await _remoteDataSource.completeLoading(deliveryId, request.toJson());
+      await _remoteDataSource.startDelivery(deliveryId, request.toJson());
+      await _remoteDataSource.updateStatus(
+        deliveryId,
+        DeliveryStatusUpdate.loadingCompleted,
+      );
     } on DioException catch (exception) {
       throw mapDioException(exception);
     } on Failure {
@@ -93,26 +102,16 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
   }
 
   @override
-  Future<void> startTrip(
-    String deliveryId, {
-    required String latitude,
-    required String longitude,
-  }) => _runAction(
-    () => _remoteDataSource.startTrip(
-      deliveryId,
-      StartTripRequest(
-        startLatitude: latitude,
-        startLongitude: longitude,
-      ).toJson(),
-    ),
-    fallbackMessage: 'Could not start trip',
-  );
+  Future<void> startTrip(String deliveryId) =>
+      updateStatus(deliveryId, DeliveryStatusUpdate.inDelivery);
 
   @override
-  Future<void> startOffloading(String deliveryId) => _runAction(
-    () => _remoteDataSource.startOffloading(deliveryId),
-    fallbackMessage: 'Could not start off-loading',
-  );
+  Future<void> atDeliveryLocation(String deliveryId) =>
+      updateStatus(deliveryId, DeliveryStatusUpdate.arrivedAtLocation);
+
+  @override
+  Future<void> startOffloading(String deliveryId) =>
+      updateStatus(deliveryId, DeliveryStatusUpdate.offloadingStarted);
 
   @override
   Future<void> completeOffloading(
@@ -120,10 +119,18 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
     CompleteOffloadingSubmission submission,
   ) async {
     try {
+      final animalPhotos = await Future.wait(
+        submission.endAnimalPhotos.map(
+          (photo) async => _remoteDataSource.uploadImage(
+            await photo.readAsBytes(),
+            photo.name,
+          ),
+        ),
+      );
       final uploaded = await Future.wait([
         _remoteDataSource.uploadVideo(
-          await submission.offLoadAnimalsVideo.readAsBytes(),
-          submission.offLoadAnimalsVideo.name,
+          await submission.endAnimalVideos.readAsBytes(),
+          submission.endAnimalVideos.name,
         ),
         _remoteDataSource.uploadImage(
           submission.clientSignature,
@@ -131,13 +138,14 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         ),
       ]);
       final request = CompleteOffloadingRequest(
-        offLoadAnimalsVideo: uploaded[0],
+        endAnimalPhotos: animalPhotos,
+        endAnimalVideos: uploaded[0],
         offLoadChecklist: submission.offLoadChecklist,
         clientSignature: uploaded[1],
         endOdometerReading: submission.endOdometerReading,
         buyerId: submission.buyerId,
       );
-      await _remoteDataSource.completeOffloading(deliveryId, request.toJson());
+      await _remoteDataSource.endDelivery(deliveryId, request.toJson());
     } on DioException catch (exception) {
       throw mapDioException(exception);
     } on Failure {

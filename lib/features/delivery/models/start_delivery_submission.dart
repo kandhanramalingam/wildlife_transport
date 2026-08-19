@@ -78,30 +78,17 @@ class StartDeliveryRequest {
   };
 }
 
-class StartTripRequest {
-  final String startLatitude;
-  final String startLongitude;
-
-  const StartTripRequest({
-    required this.startLatitude,
-    required this.startLongitude,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'startLatitude': startLatitude,
-    'startLongitude': startLongitude,
-  };
-}
-
 class CompleteOffloadingSubmission {
-  final XFile offLoadAnimalsVideo;
+  final List<XFile> endAnimalPhotos;
+  final XFile endAnimalVideos;
   final List<DeliveryChecklistItem> offLoadChecklist;
   final Uint8List clientSignature;
   final int endOdometerReading;
   final String buyerId;
 
   const CompleteOffloadingSubmission({
-    required this.offLoadAnimalsVideo,
+    required this.endAnimalPhotos,
+    required this.endAnimalVideos,
     required this.offLoadChecklist,
     required this.clientSignature,
     required this.endOdometerReading,
@@ -110,14 +97,16 @@ class CompleteOffloadingSubmission {
 }
 
 class CompleteOffloadingRequest {
-  final String offLoadAnimalsVideo;
+  final List<String> endAnimalPhotos;
+  final String endAnimalVideos;
   final List<DeliveryChecklistItem> offLoadChecklist;
   final String clientSignature;
   final int endOdometerReading;
   final String buyerId;
 
   const CompleteOffloadingRequest({
-    required this.offLoadAnimalsVideo,
+    required this.endAnimalPhotos,
+    required this.endAnimalVideos,
     required this.offLoadChecklist,
     required this.clientSignature,
     required this.endOdometerReading,
@@ -125,7 +114,8 @@ class CompleteOffloadingRequest {
   });
 
   Map<String, dynamic> toJson() => {
-    'offLoadAnimalsVideo': offLoadAnimalsVideo,
+    'endAnimalPhotos': endAnimalPhotos,
+    'endAnimalVideos': endAnimalVideos,
     'offLoadChecklist': offLoadChecklist.map((item) => item.toJson()).toList(),
     'clientSignature': clientSignature,
     'endOdometerReading': endOdometerReading,

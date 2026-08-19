@@ -84,7 +84,7 @@ class DeliveryCard extends StatelessWidget {
     final loaded = lot.loadingCompleted;
     final loadingStarted = lot.status == DeliveryStatus.loading;
     final deliveryCompleted =
-        delivery.status == DeliveryStatus.completed || lot.deliveryCompleted;
+        delivery.deliveryCompleted || lot.deliveryCompleted;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -208,7 +208,7 @@ class DeliveryCard extends StatelessWidget {
 
   Widget _buildTripButton() {
     final tripStarted = delivery.tripStarted;
-    final completed = delivery.status == DeliveryStatus.completed;
+    final completed = delivery.deliveryCompleted;
     final canStartTrip = delivery.allLotsLoaded;
     final showDeliveryProgress = tripStarted || completed;
 

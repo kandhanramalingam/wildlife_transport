@@ -38,21 +38,10 @@ void main() {
     });
   });
 
-  test('serializes the start trip API payload', () {
-    const request = StartTripRequest(
-      startLatitude: '-25.746110',
-      startLongitude: '28.188060',
-    );
-
-    expect(request.toJson(), {
-      'startLatitude': '-25.746110',
-      'startLongitude': '28.188060',
-    });
-  });
-
-  test('serializes the complete off-loading API payload', () {
+  test('serializes the end delivery API payload', () {
     const request = CompleteOffloadingRequest(
-      offLoadAnimalsVideo: 'uploads/videos/off-loading.mp4',
+      endAnimalPhotos: ['uploads/images/end-animal.png'],
+      endAnimalVideos: 'uploads/videos/off-loading.mp4',
       offLoadChecklist: [
         DeliveryChecklistItem(item: 'Confirm animal health', checked: true),
       ],
@@ -62,7 +51,8 @@ void main() {
     );
 
     expect(request.toJson(), {
-      'offLoadAnimalsVideo': 'uploads/videos/off-loading.mp4',
+      'endAnimalPhotos': ['uploads/images/end-animal.png'],
+      'endAnimalVideos': 'uploads/videos/off-loading.mp4',
       'offLoadChecklist': [
         {'item': 'Confirm animal health', 'checked': true},
       ],

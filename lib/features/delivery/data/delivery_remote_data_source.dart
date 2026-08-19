@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../models/delivery_model.dart';
 import 'delivery_schedule_dto.dart';
 
 abstract interface class DeliveryRemoteDataSource {
@@ -11,11 +12,9 @@ abstract interface class DeliveryRemoteDataSource {
   });
   Future<String> uploadImage(List<int> bytes, String filename);
   Future<String> uploadVideo(List<int> bytes, String filename);
-  Future<void> startLoading(String deliveryId);
-  Future<void> completeLoading(String deliveryId, Map<String, dynamic> body);
-  Future<void> startTrip(String deliveryId, Map<String, dynamic> body);
-  Future<void> startOffloading(String deliveryId);
-  Future<void> completeOffloading(String deliveryId, Map<String, dynamic> body);
+  Future<void> updateStatus(String deliveryId, DeliveryStatusUpdate status);
+  Future<void> startDelivery(String deliveryId, Map<String, dynamic> body);
+  Future<void> endDelivery(String deliveryId, Map<String, dynamic> body);
 }
 
 class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
@@ -41,6 +40,17 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
   Future<String> uploadVideo(List<int> bytes, String filename) =>
       _uploadFile('file/upload-video', bytes, filename);
 
+  @override
+  Future<void> updateStatus(
+    String deliveryId,
+    DeliveryStatusUpdate status,
+  ) async {
+    await _dio.patch<void>(
+      'driver-auth/delivery/$deliveryId/status',
+      data: {'status': status.apiValue},
+    );
+  }
+
   Future<String> _uploadFile(
     String path,
     List<int> bytes,
@@ -60,43 +70,16 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
   }
 
   @override
-  Future<void> startLoading(String deliveryId) async {
-    await _dio.post<void>('driver-auth/delivery/$deliveryId/start-loading');
-  }
-
-  @override
-  Future<void> completeLoading(
+  Future<void> startDelivery(
     String deliveryId,
     Map<String, dynamic> body,
   ) async {
-    await _dio.post<void>(
-      'driver-auth/delivery/$deliveryId/complete-loading',
-      data: body,
-    );
+    await _dio.post<void>('driver-auth/delivery/$deliveryId/start', data: body);
   }
 
   @override
-  Future<void> startTrip(String deliveryId, Map<String, dynamic> body) async {
-    await _dio.post<void>(
-      'driver-auth/delivery/$deliveryId/start-trip',
-      data: body,
-    );
-  }
-
-  @override
-  Future<void> startOffloading(String deliveryId) async {
-    await _dio.post<void>('driver-auth/delivery/$deliveryId/start-offloading');
-  }
-
-  @override
-  Future<void> completeOffloading(
-    String deliveryId,
-    Map<String, dynamic> body,
-  ) async {
-    await _dio.post<void>(
-      'driver-auth/delivery/$deliveryId/complete-offloading',
-      data: body,
-    );
+  Future<void> endDelivery(String deliveryId, Map<String, dynamic> body) async {
+    await _dio.post<void>('driver-auth/delivery/$deliveryId/end', data: body);
   }
 
   Future<List<DeliveryScheduleDto>> _getSchedule(

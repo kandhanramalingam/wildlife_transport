@@ -2,13 +2,35 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wildlife_transport/features/delivery/models/delivery_model.dart';
 
 void main() {
+  test('serializes delivery status update values for the API', () {
+    expect(DeliveryStatusUpdate.values.map((status) => status.apiValue), [
+      'pending',
+      'ready',
+      'started',
+      'ongoing',
+      'ended',
+      'completed',
+      'hold',
+      'loading_in_progress',
+      'loading_completed',
+      'in_delivery',
+      'arrived_at_location',
+      'offloading_started',
+    ]);
+  });
+
   test('maps API lifecycle statuses and loading completion correctly', () {
     expect(DeliveryStatus.fromApi('loadingStarted'), DeliveryStatus.loading);
+    expect(
+      DeliveryStatus.fromApi('loading_in_progress'),
+      DeliveryStatus.loading,
+    );
     expect(
       DeliveryStatus.fromApi('loading-completed'),
       DeliveryStatus.loadingCompleted,
     );
     expect(DeliveryStatus.fromApi('trip_started'), DeliveryStatus.inProgress);
+    expect(DeliveryStatus.fromApi('in_delivery'), DeliveryStatus.inProgress);
     expect(
       DeliveryStatus.fromApi('offloading_started'),
       DeliveryStatus.offloading,
@@ -98,6 +120,36 @@ void main() {
       delivery.copyWith(status: DeliveryStatus.completed).deliveryProgressLabel,
       '2/2 Delivery Completed',
     );
+  });
+
+  test('delivery is complete when every combined lot is complete', () {
+    final delivery = DeliveryModel(
+      id: 'route-1',
+      dateTime: DateTime(2026, 8, 19),
+      clientName: 'Main buyer',
+      clientAddress: 'Address',
+      lots: const [
+        DeliveryLot(
+          clientName: 'Buyer one',
+          buyerId: 'buyer-1',
+          mainBuyer: true,
+          deliveryId: 'delivery-1',
+          address: 'Address one',
+          status: DeliveryStatus.completed,
+        ),
+        DeliveryLot(
+          clientName: 'Buyer two',
+          buyerId: 'buyer-2',
+          mainBuyer: false,
+          deliveryId: 'delivery-2',
+          address: 'Address two',
+          status: DeliveryStatus.completed,
+        ),
+      ],
+    );
+
+    expect(delivery.deliveryCompleted, isTrue);
+    expect(delivery.completedDeliveryCount, 2);
   });
 
   test('off-loading order is the reverse of loading order', () {

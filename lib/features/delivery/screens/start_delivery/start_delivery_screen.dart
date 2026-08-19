@@ -117,7 +117,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
                   },
                   includeVehicleDetails: true,
                   includeVehiclePhotos: !_isArrival,
-                  includeAnimalPhotos: !_isArrival,
+                  includeAnimalPhotos: true,
                   requireLocation: !_isArrival,
                   isOffLoading: _isArrival,
                 ),
@@ -154,6 +154,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
       if (photos == null ||
           offLoadChecklist == null ||
           photos.odometerReading == null ||
+          photos.animalPhotos.isEmpty ||
           buyerId.isEmpty) {
         _showError('Some off-loading details are missing. Please try again.');
         return;
@@ -162,7 +163,8 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
         await _repository.completeOffloading(
           widget.delivery.id,
           CompleteOffloadingSubmission(
-            offLoadAnimalsVideo: photos.animalVideo,
+            endAnimalPhotos: photos.animalPhotos,
+            endAnimalVideos: photos.animalVideo,
             offLoadChecklist: offLoadChecklist,
             clientSignature: managerSignature,
             endOdometerReading: photos.odometerReading!,

@@ -1,6 +1,6 @@
 {
-    "name": "wildlife_transport",
-    "short_name": "wildlife_transport",
+    "name": "AWA Transport",
+    "short_name": "AWA Transport",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

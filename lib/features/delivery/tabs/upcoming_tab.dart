@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/error/failure.dart';
-import '../../../core/location/current_location.dart';
 import '../domain/delivery_repository.dart';
 import '../models/delivery_model.dart';
 import '../presentation/upcoming_deliveries_controller.dart';
@@ -44,11 +43,15 @@ class _UpcomingTabState extends State<UpcomingTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_controller.isLoading && _controller.deliveries.isEmpty) {
+    final activeDeliveries = _controller.deliveries
+        .where((delivery) => !delivery.deliveryCompleted)
+        .toList(growable: false);
+
+    if (_controller.isLoading && activeDeliveries.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_controller.errorMessage != null && _controller.deliveries.isEmpty) {
+    if (_controller.errorMessage != null && activeDeliveries.isEmpty) {
       return _ErrorState(
         message: _controller.errorMessage!,
         buttonLabel: _controller.requiresLogin ? 'Log in again' : 'Retry',
@@ -58,7 +61,7 @@ class _UpcomingTabState extends State<UpcomingTab> {
       );
     }
 
-    if (_controller.deliveries.isEmpty) {
+    if (activeDeliveries.isEmpty) {
       return RefreshIndicator(
         onRefresh: _controller.load,
         child: const _EmptyState(message: 'No upcoming deliveries'),
@@ -69,9 +72,9 @@ class _UpcomingTabState extends State<UpcomingTab> {
       onRefresh: _controller.load,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        itemCount: _controller.deliveries.length,
+        itemCount: activeDeliveries.length,
         itemBuilder: (context, index) {
-          final delivery = _controller.deliveries[index];
+          final delivery = activeDeliveries[index];
           return DeliveryCard(
             delivery: delivery,
             onStartLoading: (lot) => _startLoading(delivery, lot),
@@ -128,15 +131,7 @@ class _UpcomingTabState extends State<UpcomingTab> {
     }
     if (!delivery.allLotsLoaded) return;
     try {
-      final coordinates = await getCurrentCoordinates();
-      await _repository.startTrip(
-        delivery.id,
-        latitude: coordinates.latitude,
-        longitude: coordinates.longitude,
-      );
-    } on CurrentLocationException catch (exception) {
-      _showError(exception.message);
-      return;
+      await _repository.startTrip(delivery.id);
     } on Failure catch (failure) {
       _showError(failure.message);
       return;
@@ -167,9 +162,32 @@ class _UpcomingTabState extends State<UpcomingTab> {
     );
     if (updatedLots == null || !mounted) return;
     _controller.updateLots(delivery.id, updatedLots);
-    if (updatedLots.isNotEmpty &&
-        updatedLots.every((lot) => lot.deliveryCompleted)) {
+    final allCompleted =
+        updatedLots.isNotEmpty &&
+        updatedLots.every((lot) => lot.deliveryCompleted);
+    if (allCompleted) {
       _controller.markDeliveryCompleted(delivery.id);
+    }
+    final completedAStop = updatedLots.any(
+      (updatedLot) =>
+          updatedLot.deliveryCompleted &&
+          !delivery.lots.any(
+            (existingLot) =>
+                existingLot.deliveryId == updatedLot.deliveryId &&
+                existingLot.deliveryCompleted,
+          ),
+    );
+    if (completedAStop) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            allCompleted
+                ? 'Delivery completed successfully.'
+                : 'Customer delivery completed.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 }

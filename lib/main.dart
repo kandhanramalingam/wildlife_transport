@@ -12,7 +12,7 @@ class WildlifeTransportApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Wildlife Transport',
+      title: 'AWA Transport',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       home: const SessionGate(),
