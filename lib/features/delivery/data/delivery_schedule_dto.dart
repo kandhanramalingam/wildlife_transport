@@ -153,7 +153,7 @@ class DeliveryScheduleDto {
           ? Map<String, dynamic>.from(rawBuyer)
           : <String, dynamic>{'buyerId': rawBuyer};
       final client = _record(
-        buyer['buyer'] ?? buyer['client'] ?? buyer['value'],
+        buyer['buyer'] ?? buyer['client'] ?? buyer['buyerId'] ?? buyer['value'],
       );
       final clientBuyerId = _firstString(client.isEmpty ? buyer : client, [
         'buyerId',
@@ -170,7 +170,12 @@ class DeliveryScheduleDto {
       for (final rawDelivery in deliveryRows) {
         if (rawDelivery is! Map) continue;
         final candidate = Map<String, dynamic>.from(rawDelivery);
-        final candidateBuyerId = _firstString(candidate, ['buyerId', 'value']);
+        final candidateBuyerId = _entityId(
+          candidate['buyerId'] ??
+              candidate['buyer'] ??
+              candidate['client'] ??
+              candidate['value'],
+        );
         if (candidateBuyerId == buyerId) {
           delivery = candidate;
           break;
@@ -193,70 +198,61 @@ class DeliveryScheduleDto {
               : deliveryId,
           buyerId: buyerId,
           buyerName: _name(
-            buyer['buyerName'] ??
+            _firstValue(client, ['buyerName', 'clientName', 'name', 'label']) ??
+                buyer['buyerName'] ??
                 buyer['clientName'] ??
                 buyer['label'] ??
                 buyer['name'] ??
-                _firstValue(client, [
-                  'buyerName',
-                  'clientName',
-                  'name',
-                  'label',
-                ]) ??
                 delivery['buyerName'],
             buyerId,
           ),
           address: _address(
-            buyer['address'] ??
-                _firstValue(client, ['address', 'farmAddress']) ??
+            _firstValue(client, ['address', 'farmAddress']) ??
+                buyer['address'] ??
                 delivery['address'],
-            mainAddress,
+            '',
           ),
           farmName: _stringValue(
-            buyer['farmName'] ??
+            _firstValue(client, ['farmName', 'farm_name']) ??
+                buyer['farmName'] ??
                 buyer['farm_name'] ??
-                _firstValue(client, ['farmName', 'farm_name']) ??
                 delivery['farmName'],
           ),
           companyName: _stringValue(
-            buyer['companyName'] ??
-                _firstValue(client, ['companyName']) ??
+            _firstValue(client, ['companyName']) ??
+                buyer['companyName'] ??
                 delivery['companyName'],
           ),
           contactNumber: _stringValue(
-            buyer['contactNumber'] ??
+            _firstValue(client, ['contactNumber', 'phoneNumber', 'phone']) ??
+                buyer['contactNumber'] ??
                 buyer['phoneNumber'] ??
-                _firstValue(client, [
-                  'contactNumber',
-                  'phoneNumber',
-                  'phone',
-                ]) ??
                 delivery['contactNumber'],
           ),
           latitude: _stringValue(
             _firstNonEmptyValue([
-              buyer['clientLatitude'],
               client['clientLatitude'],
-              delivery['clientLatitude'],
-              buyer['latitude'],
-              buyer['lat'],
               client['latitude'],
               client['lat'],
+              buyer['clientLatitude'],
+              buyer['latitude'],
+              buyer['lat'],
+              delivery['clientLatitude'],
               delivery['latitude'],
               delivery['lat'],
             ]),
           ),
           longitude: _stringValue(
             _firstNonEmptyValue([
-              buyer['clientLongitude'],
               client['clientLongitude'],
-              delivery['clientLongitude'],
-              buyer['longitude'],
-              buyer['lng'],
-              buyer['long'],
               client['longitude'],
               client['lng'],
               client['long'],
+              buyer['clientLongitude'],
+              buyer['longitude'],
+              buyer['lng'],
+              buyer['long'],
+              delivery['clientLongitude'],
               delivery['longitude'],
               delivery['lng'],
               delivery['long'],
@@ -305,6 +301,13 @@ class DeliveryScheduleDto {
   static Map<String, dynamic> _record(dynamic value) => value is Map
       ? Map<String, dynamic>.from(value)
       : const <String, dynamic>{};
+
+  static String _entityId(dynamic value) {
+    final record = _record(value);
+    return record.isEmpty
+        ? _stringValue(value)
+        : _firstString(record, ['buyerId', 'value', 'id', '_id']);
+  }
 
   static String _stringValue(dynamic value) => value?.toString().trim() ?? '';
 

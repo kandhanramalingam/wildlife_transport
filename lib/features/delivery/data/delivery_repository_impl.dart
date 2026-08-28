@@ -146,6 +146,10 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         buyerId: submission.buyerId,
       );
       await _remoteDataSource.endDelivery(deliveryId, request.toJson());
+      await _remoteDataSource.updateStatus(
+        deliveryId,
+        DeliveryStatusUpdate.completed,
+      );
     } on DioException catch (exception) {
       throw mapDioException(exception);
     } on Failure {

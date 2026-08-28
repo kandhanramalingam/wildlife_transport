@@ -111,8 +111,61 @@ void main() {
     expect(dto.lots[1].deliveryStatus, 'started');
     expect(dto.lots[1].loadingOrder, 2);
     expect(dto.lots[2].deliveryId, 'combined-delivery-2');
-    expect(dto.lots[2].address, 'Main address');
+    expect(dto.lots[2].address, isEmpty);
   });
+
+  test(
+    'uses each combined buyer profile instead of the main buyer details',
+    () {
+      final dto = DeliveryScheduleDto.fromJson({
+        '_id': 'main-delivery',
+        'buyerId': 'buyer-1',
+        'buyerName': 'First buyer',
+        'address': 'First address',
+        'companyName': 'First company',
+        'contactNumber': '111',
+        'clientLatitude': '1.1',
+        'clientLongitude': '2.2',
+        'auctionId': 'auction-1',
+        'scheduleDate': '2026-08-19T14:45:00.000Z',
+        'deliveryStatus': 'pending',
+        'combinedLotBuyers': [
+          {
+            'buyerId': {
+              '_id': 'buyer-2',
+              'name': 'Second buyer',
+              'address': 'Second address',
+              'companyName': 'Second company',
+              'contactNumber': '222',
+              'clientLatitude': '3.3',
+              'clientLongitude': '4.4',
+            },
+          },
+        ],
+        'combinedLotDeliveries': [
+          {
+            '_id': 'second-delivery',
+            'buyerId': {'_id': 'buyer-2'},
+            'address': 'First address',
+            'companyName': 'First company',
+            'contactNumber': '111',
+            'clientLatitude': '1.1',
+            'clientLongitude': '2.2',
+          },
+        ],
+      });
+
+      expect(dto.lots, hasLength(2));
+      expect(dto.lots[1].buyerId, 'buyer-2');
+      expect(dto.lots[1].buyerName, 'Second buyer');
+      expect(dto.lots[1].address, 'Second address');
+      expect(dto.lots[1].companyName, 'Second company');
+      expect(dto.lots[1].contactNumber, '222');
+      expect(dto.lots[1].latitude, '3.3');
+      expect(dto.lots[1].longitude, '4.4');
+      expect(dto.lots[1].deliveryId, 'second-delivery');
+    },
+  );
 
   test('parses farm and coordinates from nested client records', () {
     final dto = DeliveryScheduleDto.fromJson({

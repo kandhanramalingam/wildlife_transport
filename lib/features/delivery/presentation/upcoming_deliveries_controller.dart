@@ -18,25 +18,32 @@ class UpcomingDeliveriesController extends ChangeNotifier {
 
   Future<void> load() async {
     _cancelToken?.cancel('Schedule refreshed');
-    _cancelToken = CancelToken();
+    final cancelToken = CancelToken();
+    _cancelToken = cancelToken;
     isLoading = true;
     requiresLogin = false;
     errorMessage = null;
     notifyListeners();
 
     try {
-      deliveries = await _repository.getUpcomingSchedule(
-        cancelToken: _cancelToken,
+      final result = await _repository.getUpcomingSchedule(
+        cancelToken: cancelToken,
       );
+      if (_cancelToken != cancelToken) return;
+      deliveries = result;
     } on UnauthorizedFailure catch (failure) {
+      if (_cancelToken != cancelToken) return;
       requiresLogin = true;
       errorMessage = failure.message;
     } on Failure catch (failure) {
+      if (_cancelToken != cancelToken) return;
       errorMessage = failure.message;
     } finally {
-      isLoading = false;
-      _cancelToken = null;
-      notifyListeners();
+      if (_cancelToken == cancelToken) {
+        isLoading = false;
+        _cancelToken = null;
+        notifyListeners();
+      }
     }
   }
 
@@ -111,6 +118,25 @@ class UpcomingDeliveriesController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void reorderLots(String deliveryId, int oldIndex, int newIndex) {
+    final index = deliveries.indexWhere((item) => item.id == deliveryId);
+    if (index == -1) return;
+
+    final delivery = deliveries[index];
+    if (oldIndex < 0 ||
+        oldIndex >= delivery.lots.length ||
+        newIndex < 0 ||
+        newIndex >= delivery.lots.length ||
+        delivery.lots.any((lot) => lot.status != DeliveryStatus.pending)) {
+      return;
+    }
+
+    final lots = List<DeliveryLot>.of(delivery.lots);
+    final lot = lots.removeAt(oldIndex);
+    lots.insert(newIndex, lot);
+    updateLots(deliveryId, lots);
+  }
+
   void _updateStatus(String deliveryId, DeliveryStatus status) {
     final index = deliveries.indexWhere(
       (delivery) => delivery.id == deliveryId,
@@ -124,7 +150,9 @@ class UpcomingDeliveriesController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _cancelToken?.cancel('Upcoming deliveries disposed');
+    final cancelToken = _cancelToken;
+    _cancelToken = null;
+    cancelToken?.cancel('Upcoming deliveries disposed');
     super.dispose();
   }
 }

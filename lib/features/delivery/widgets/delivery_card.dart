@@ -3,16 +3,20 @@ import '../../../core/theme/app_theme.dart';
 import '../models/delivery_model.dart';
 import 'client_contact_row.dart';
 
+typedef LotReorderCallback = void Function(int oldIndex, int newIndex);
+
 class DeliveryCard extends StatelessWidget {
   final DeliveryModel delivery;
   final ValueChanged<DeliveryLot> onStartLoading;
   final VoidCallback onStartTrip;
+  final LotReorderCallback? onReorderLot;
 
   const DeliveryCard({
     super.key,
     required this.delivery,
     required this.onStartLoading,
     required this.onStartTrip,
+    this.onReorderLot,
   });
 
   @override
@@ -35,7 +39,7 @@ class DeliveryCard extends StatelessWidget {
               if (entry.key > 0) {
                 yield const Divider(height: 25, color: Color(0xFFEEEEEE));
               }
-              yield _buildLot(entry.value);
+              yield _buildLot(entry.key, entry.value);
             }),
             const SizedBox(height: 16),
             _buildTripButton(),
@@ -80,11 +84,26 @@ class DeliveryCard extends StatelessWidget {
     return const Divider(height: 1, color: Color(0xFFEEEEEE));
   }
 
-  Widget _buildLot(DeliveryLot lot) {
+  Widget _buildLot(int index, DeliveryLot lot) {
     final loaded = lot.loadingCompleted;
     final loadingStarted = lot.status == DeliveryStatus.loading;
     final deliveryCompleted =
         delivery.deliveryCompleted || lot.deliveryCompleted;
+    final activeLoadingIndex = delivery.lots.indexWhere(
+      (item) => item.status == DeliveryStatus.loading,
+    );
+    final nextPendingIndex = delivery.lots.indexWhere(
+      (item) => !item.loadingCompleted,
+    );
+    final nextLoadingIndex = activeLoadingIndex == -1
+        ? nextPendingIndex
+        : activeLoadingIndex;
+    final waitingForTurn =
+        !loaded && !deliveryCompleted && index != nextLoadingIndex;
+    final canReorder =
+        onReorderLot != null &&
+        delivery.lots.length > 1 &&
+        delivery.lots.every((item) => item.status == DeliveryStatus.pending);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -107,6 +126,31 @@ class DeliveryCard extends StatelessWidget {
                 ),
               ),
             ),
+            if (onReorderLot != null && delivery.lots.length > 1) ...[
+              _LoadingOrderBadge(order: index + 1),
+              IconButton(
+                onPressed: canReorder && index > 0
+                    ? () => onReorderLot!(index, index - 1)
+                    : null,
+                icon: const Icon(Icons.keyboard_arrow_up),
+                iconSize: 22,
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                padding: EdgeInsets.zero,
+                tooltip: 'Move earlier',
+              ),
+              IconButton(
+                onPressed: canReorder && index < delivery.lots.length - 1
+                    ? () => onReorderLot!(index, index + 1)
+                    : null,
+                icon: const Icon(Icons.keyboard_arrow_down),
+                iconSize: 22,
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                padding: EdgeInsets.zero,
+                tooltip: 'Move later',
+              ),
+            ],
           ],
         ),
         if (lot.address.isNotEmpty) ...[
@@ -163,7 +207,7 @@ class DeliveryCard extends StatelessWidget {
           width: double.infinity,
           height: 42,
           child: OutlinedButton.icon(
-            onPressed: loaded || deliveryCompleted
+            onPressed: loaded || deliveryCompleted || waitingForTurn
                 ? null
                 : () => onStartLoading(lot),
             icon: Icon(
@@ -176,6 +220,8 @@ class DeliveryCard extends StatelessWidget {
                   ? 'Delivery Completed'
                   : loaded
                   ? 'Loading Completed'
+                  : waitingForTurn
+                  ? 'Waiting for Loading Turn'
                   : loadingStarted
                   ? 'Continue Loading'
                   : 'Start Loading',
@@ -255,5 +301,31 @@ class DeliveryCard extends StatelessWidget {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final dayName = days[dt.weekday - 1];
     return '$dayName, ${dt.day} ${months[dt.month - 1]}';
+  }
+}
+
+class _LoadingOrderBadge extends StatelessWidget {
+  final int order;
+
+  const _LoadingOrderBadge({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(left: 8, right: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        'Load $order',
+        style: const TextStyle(
+          color: AppTheme.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
   }
 }

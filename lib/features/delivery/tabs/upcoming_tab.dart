@@ -79,6 +79,8 @@ class _UpcomingTabState extends State<UpcomingTab> {
             delivery: delivery,
             onStartLoading: (lot) => _startLoading(delivery, lot),
             onStartTrip: () => _startTrip(delivery),
+            onReorderLot: (oldIndex, newIndex) =>
+                _controller.reorderLots(delivery.id, oldIndex, newIndex),
           );
         },
       ),

@@ -27,7 +27,10 @@ class CompletedTabState extends State<CompletedTab> {
     if (mounted) setState(() {});
   }
 
-  Future<void> refresh() => _controller.load();
+  Future<void> refresh() {
+    if (_controller.isLoading) return Future.value();
+    return _controller.load();
+  }
 
   @override
   void dispose() {
