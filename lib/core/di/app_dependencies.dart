@@ -11,6 +11,8 @@ import '../../features/profile/data/profile_remote_data_source.dart';
 import '../../features/profile/data/profile_repository_impl.dart';
 import '../../features/profile/presentation/profile_controller.dart';
 import '../network/api_client.dart';
+import '../location/location_queue_store.dart';
+import '../location/trip_location_tracker.dart';
 import '../storage/token_storage.dart';
 
 class AppDependencies {
@@ -21,6 +23,10 @@ class AppDependencies {
     tokenStorage,
   );
   static final ApiClient apiClient = ApiClient(tokenStorage);
+  static final TripLocationTracker tripLocationTracker = TripLocationTracker(
+    createDeliveryRepository(),
+    SharedPreferencesLocationQueueStore(),
+  );
 
   static LoginController createLoginController() {
     final dataSource = DioAuthRemoteDataSource(apiClient.dio);
@@ -37,7 +43,10 @@ class AppDependencies {
   }
 
   static DeliveryRepository createDeliveryRepository() {
-    final dataSource = DioDeliveryRemoteDataSource(apiClient.dio);
+    final dataSource = DioDeliveryRemoteDataSource(
+      apiClient.dio,
+      () => sessionController.driverId,
+    );
     return DeliveryRepositoryImpl(dataSource);
   }
 

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/error/failure.dart';
+import '../../../core/location/location_tracking_disclosure.dart';
 import '../domain/delivery_repository.dart';
 import '../models/delivery_model.dart';
 import '../presentation/today_deliveries_controller.dart';
@@ -30,6 +33,18 @@ class _TodayTabState extends State<TodayTab> {
   }
 
   void _onStateChanged() {
+    if (!_controller.isLoading && _controller.errorMessage == null) {
+      final activeTrips = _controller.deliveries.where(
+        (delivery) => delivery.tripStarted && !delivery.deliveryCompleted,
+      );
+      if (activeTrips.isEmpty) {
+        unawaited(AppDependencies.tripLocationTracker.stop());
+      } else {
+        unawaited(
+          AppDependencies.tripLocationTracker.start(activeTrips.first.id),
+        );
+      }
+    }
     if (mounted) setState(() {});
   }
 
@@ -93,7 +108,10 @@ class _TodayTabState extends State<TodayTab> {
     final loadingOrder = delivery.nextLoadingOrder;
     try {
       if (lot.status != DeliveryStatus.loading) {
-        await _repository.startLoading(lot.deliveryId);
+        await _repository.startLoading(
+          lot.deliveryId,
+          vehicleId: lot.assignment?.vehicleId ?? delivery.assignedVehicleId,
+        );
         _controller.markLotLoadingStarted(delivery.id, lot.deliveryId);
       }
     } on Failure catch (failure) {
@@ -116,6 +134,7 @@ class _TodayTabState extends State<TodayTab> {
             clientName: lot.clientName,
             clientAddress: lot.address,
             paymentStatus: delivery.paymentStatus,
+            assignment: lot.assignment ?? delivery.assignment,
           ),
         ),
       ),
@@ -149,8 +168,14 @@ class _TodayTabState extends State<TodayTab> {
     }
     if (!delivery.allLotsLoaded) return;
 
+    await showLocationTrackingDisclosure(context);
+    if (!mounted) return;
+
     try {
-      await _repository.startTrip(delivery.id);
+      await _repository.startTrip(
+        delivery.id,
+        vehicleId: delivery.assignedVehicleId,
+      );
     } on Failure catch (failure) {
       _showError(failure.message);
       return;
@@ -161,6 +186,7 @@ class _TodayTabState extends State<TodayTab> {
     if (!mounted) return;
 
     _controller.markTripStarted(delivery.id);
+    unawaited(AppDependencies.tripLocationTracker.start(delivery.id));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Trip started successfully!'),
@@ -194,6 +220,9 @@ class _TodayTabState extends State<TodayTab> {
         updatedLots.every((lot) => lot.deliveryCompleted);
     if (allCompleted) {
       _controller.markDeliveryCompleted(delivery.id);
+      unawaited(
+        AppDependencies.tripLocationTracker.stop(deliveryId: delivery.id),
+      );
     }
     final completedAStop = updatedLots.any(
       (updatedLot) =>

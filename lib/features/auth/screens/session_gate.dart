@@ -18,7 +18,21 @@ class _SessionGateState extends State<SessionGate> {
   @override
   void initState() {
     super.initState();
-    _controller = AppDependencies.sessionController..initialize();
+    _controller = AppDependencies.sessionController
+      ..addListener(_onSessionChanged)
+      ..initialize();
+  }
+
+  void _onSessionChanged() {
+    if (_controller.status == SessionStatus.unauthenticated) {
+      AppDependencies.tripLocationTracker.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onSessionChanged);
+    super.dispose();
   }
 
   @override

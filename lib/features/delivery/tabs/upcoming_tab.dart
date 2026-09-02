@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/error/failure.dart';
+import '../../../core/location/location_tracking_disclosure.dart';
 import '../domain/delivery_repository.dart';
 import '../models/delivery_model.dart';
 import '../presentation/upcoming_deliveries_controller.dart';
@@ -91,7 +94,10 @@ class _UpcomingTabState extends State<UpcomingTab> {
     final loadingOrder = delivery.nextLoadingOrder;
     try {
       if (lot.status != DeliveryStatus.loading) {
-        await _repository.startLoading(lot.deliveryId);
+        await _repository.startLoading(
+          lot.deliveryId,
+          vehicleId: lot.assignment?.vehicleId ?? delivery.assignedVehicleId,
+        );
         _controller.markLotLoadingStarted(delivery.id, lot.deliveryId);
       }
     } on Failure catch (failure) {
@@ -114,6 +120,7 @@ class _UpcomingTabState extends State<UpcomingTab> {
             clientName: lot.clientName,
             clientAddress: lot.address,
             paymentStatus: delivery.paymentStatus,
+            assignment: lot.assignment ?? delivery.assignment,
           ),
         ),
       ),
@@ -132,8 +139,13 @@ class _UpcomingTabState extends State<UpcomingTab> {
       return;
     }
     if (!delivery.allLotsLoaded) return;
+    await showLocationTrackingDisclosure(context);
+    if (!mounted) return;
     try {
-      await _repository.startTrip(delivery.id);
+      await _repository.startTrip(
+        delivery.id,
+        vehicleId: delivery.assignedVehicleId,
+      );
     } on Failure catch (failure) {
       _showError(failure.message);
       return;
@@ -144,6 +156,7 @@ class _UpcomingTabState extends State<UpcomingTab> {
     if (!mounted) return;
 
     _controller.markTripStarted(delivery.id);
+    unawaited(AppDependencies.tripLocationTracker.start(delivery.id));
     await _openTripCustomers(
       delivery.copyWith(status: DeliveryStatus.inProgress),
     );
@@ -169,6 +182,9 @@ class _UpcomingTabState extends State<UpcomingTab> {
         updatedLots.every((lot) => lot.deliveryCompleted);
     if (allCompleted) {
       _controller.markDeliveryCompleted(delivery.id);
+      unawaited(
+        AppDependencies.tripLocationTracker.stop(deliveryId: delivery.id),
+      );
     }
     final completedAStop = updatedLots.any(
       (updatedLot) =>

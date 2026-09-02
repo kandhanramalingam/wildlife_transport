@@ -4,6 +4,7 @@ import '../../../core/error/failure.dart';
 import '../../../core/network/dio_failure_mapper.dart';
 import '../domain/delivery_repository.dart';
 import '../models/delivery_model.dart';
+import '../models/location_tracking.dart';
 import '../models/start_delivery_submission.dart';
 import 'delivery_remote_data_source.dart';
 import 'delivery_schedule_dto.dart';
@@ -26,21 +27,33 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       );
 
   @override
-  Future<void> updateStatus(String deliveryId, DeliveryStatusUpdate status) =>
-      _runAction(
-        () => _remoteDataSource.updateStatus(deliveryId, status),
-        fallbackMessage: 'Could not update delivery status',
-      );
+  Future<void> updateStatus(
+    String deliveryId,
+    DeliveryStatusUpdate status, {
+    String? vehicleId,
+  }) => _runAction(
+    () => _remoteDataSource.updateStatus(
+      deliveryId,
+      status,
+      vehicleId: vehicleId,
+    ),
+    fallbackMessage: 'Could not update delivery status',
+  );
 
   @override
-  Future<void> startLoading(String deliveryId) =>
-      updateStatus(deliveryId, DeliveryStatusUpdate.loadingInProgress);
+  Future<void> startLoading(String deliveryId, {String? vehicleId}) =>
+      updateStatus(
+        deliveryId,
+        DeliveryStatusUpdate.loadingInProgress,
+        vehicleId: vehicleId,
+      );
 
   @override
   Future<void> completeLoading(
     String deliveryId,
-    StartDeliverySubmission submission,
-  ) async {
+    StartDeliverySubmission submission, {
+    String? vehicleId,
+  }) async {
     try {
       final vehiclePhotos = await Future.wait(
         submission.startVehiclePhotos.map(
@@ -89,6 +102,7 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       await _remoteDataSource.updateStatus(
         deliveryId,
         DeliveryStatusUpdate.loadingCompleted,
+        vehicleId: vehicleId,
       );
     } on DioException catch (exception) {
       throw mapDioException(exception);
@@ -102,22 +116,35 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
   }
 
   @override
-  Future<void> startTrip(String deliveryId) =>
-      updateStatus(deliveryId, DeliveryStatusUpdate.inDelivery);
+  Future<void> startTrip(String deliveryId, {String? vehicleId}) =>
+      updateStatus(
+        deliveryId,
+        DeliveryStatusUpdate.inDelivery,
+        vehicleId: vehicleId,
+      );
 
   @override
-  Future<void> atDeliveryLocation(String deliveryId) =>
-      updateStatus(deliveryId, DeliveryStatusUpdate.arrivedAtLocation);
+  Future<void> atDeliveryLocation(String deliveryId, {String? vehicleId}) =>
+      updateStatus(
+        deliveryId,
+        DeliveryStatusUpdate.arrivedAtLocation,
+        vehicleId: vehicleId,
+      );
 
   @override
-  Future<void> startOffloading(String deliveryId) =>
-      updateStatus(deliveryId, DeliveryStatusUpdate.offloadingStarted);
+  Future<void> startOffloading(String deliveryId, {String? vehicleId}) =>
+      updateStatus(
+        deliveryId,
+        DeliveryStatusUpdate.offloadingStarted,
+        vehicleId: vehicleId,
+      );
 
   @override
   Future<void> completeOffloading(
     String deliveryId,
-    CompleteOffloadingSubmission submission,
-  ) async {
+    CompleteOffloadingSubmission submission, {
+    String? vehicleId,
+  }) async {
     try {
       final animalPhotos = await Future.wait(
         submission.endAnimalPhotos.map(
@@ -149,6 +176,7 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       await _remoteDataSource.updateStatus(
         deliveryId,
         DeliveryStatusUpdate.completed,
+        vehicleId: vehicleId,
       );
     } on DioException catch (exception) {
       throw mapDioException(exception);
@@ -158,6 +186,31 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       throw UnknownFailure(exception.message);
     } on TypeError {
       throw const UnknownFailure('Invalid response from server');
+    }
+  }
+
+  @override
+  Future<void> submitDriverLocation(DriverLocationReading reading) =>
+      _runAction(
+        () => _remoteDataSource.submitDriverLocation(reading),
+        fallbackMessage: 'Could not update driver location',
+      );
+
+  @override
+  Future<SavedCustomerLocation> saveCustomerLocation(
+    CustomerLocationCapture capture,
+  ) async {
+    try {
+      final json = await _remoteDataSource.saveCustomerLocation(capture);
+      return SavedCustomerLocation.fromJson(json);
+    } on DioException catch (exception) {
+      throw mapDioException(exception);
+    } on Failure {
+      rethrow;
+    } on FormatException catch (exception) {
+      throw UnknownFailure(exception.message);
+    } on TypeError {
+      throw const UnknownFailure('Invalid customer location response');
     }
   }
 
@@ -193,6 +246,7 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
               status: DeliveryStatus.fromApi(dto.deliveryStatus),
               paymentStatus: dto.paymentStatus,
               invoicePath: dto.invoicePath,
+              assignment: _assignmentFromDto(dto.assignment),
               lots: dto.lots
                   .map(
                     (lot) => DeliveryLot(
@@ -209,6 +263,7 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
                       invoicePath: lot.invoicePath,
                       loadingOrder: lot.loadingOrder,
                       status: DeliveryStatus.fromApi(lot.deliveryStatus),
+                      assignment: _assignmentFromDto(lot.assignment),
                     ),
                   )
                   .toList(growable: false),
@@ -224,5 +279,19 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
     } on TypeError {
       throw const UnknownFailure('Invalid schedule response from server');
     }
+  }
+
+  DeliveryAssignment? _assignmentFromDto(DeliveryAssignmentDto? dto) {
+    if (dto == null) return null;
+    return DeliveryAssignment(
+      driverId: dto.driverId,
+      driverName: dto.driverName,
+      vehicleId: dto.vehicleId,
+      vehicleRegistrationNumber: dto.vehicleRegistrationNumber,
+      vehicleDescription: dto.vehicleDescription,
+      status: dto.deliveryStatus == null
+          ? null
+          : DeliveryStatus.fromApi(dto.deliveryStatus!),
+    );
   }
 }

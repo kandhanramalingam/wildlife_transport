@@ -12,6 +12,7 @@ class SessionController extends ChangeNotifier {
   Timer? _expiryTimer;
 
   SessionStatus status = SessionStatus.checking;
+  String? driverId;
 
   SessionController(this._tokenStorage);
 
@@ -28,16 +29,19 @@ class SessionController extends ChangeNotifier {
       return;
     }
 
+    driverId = await _tokenStorage.readDriverId() ?? _driverIdOf(token);
     _setAuthenticatedUntil(expiration);
   }
 
-  Future<void> markAuthenticated() async {
+  Future<void> markAuthenticated({String? driverId}) async {
     final token = await _tokenStorage.readAccessToken();
     final expiration = token == null ? null : _expirationOf(token);
     if (expiration == null || !expiration.isAfter(DateTime.now())) {
       await _setUnauthenticated(clearToken: true);
       return;
     }
+    this.driverId =
+        driverId ?? await _tokenStorage.readDriverId() ?? _driverIdOf(token!);
     _setAuthenticatedUntil(expiration);
   }
 
@@ -53,6 +57,7 @@ class SessionController extends ChangeNotifier {
   Future<void> _setUnauthenticated({required bool clearToken}) async {
     _expiryTimer?.cancel();
     if (clearToken) await _tokenStorage.clear();
+    driverId = null;
     status = SessionStatus.unauthenticated;
     notifyListeners();
   }
@@ -71,6 +76,24 @@ class SessionController extends ChangeNotifier {
         exp.toInt() * 1000,
         isUtc: true,
       ).toLocal();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _driverIdOf(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      if (payload is! Map<String, dynamic>) return null;
+      for (final key in ['driverId', 'driver_id', 'sub', 'id']) {
+        final value = payload[key]?.toString().trim() ?? '';
+        if (value.isNotEmpty) return value;
+      }
+      return null;
     } catch (_) {
       return null;
     }

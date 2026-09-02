@@ -62,6 +62,32 @@ enum DeliveryStatusUpdate {
   const DeliveryStatusUpdate(this.apiValue);
 }
 
+class DeliveryAssignment {
+  final String driverId;
+  final String driverName;
+  final String vehicleId;
+  final String vehicleRegistrationNumber;
+  final String vehicleDescription;
+  final DeliveryStatus? status;
+
+  const DeliveryAssignment({
+    required this.driverId,
+    this.driverName = '',
+    required this.vehicleId,
+    this.vehicleRegistrationNumber = '',
+    this.vehicleDescription = '',
+    this.status,
+  });
+
+  String get vehicleLabel {
+    if (vehicleRegistrationNumber.isNotEmpty) {
+      return vehicleRegistrationNumber;
+    }
+    if (vehicleDescription.isNotEmpty) return vehicleDescription;
+    return vehicleId;
+  }
+}
+
 class DeliveryLot {
   final String clientName;
   final String buyerId;
@@ -77,6 +103,8 @@ class DeliveryLot {
   final int? loadingOrder;
   final bool? atDeliveryPointState;
   final DeliveryStatus status;
+  final DeliveryAssignment? assignment;
+  final DateTime? customerLocationCapturedAt;
 
   const DeliveryLot({
     required this.clientName,
@@ -93,6 +121,8 @@ class DeliveryLot {
     this.loadingOrder,
     this.atDeliveryPointState,
     this.status = DeliveryStatus.pending,
+    this.assignment,
+    this.customerLocationCapturedAt,
   });
 
   bool get loadingCompleted => switch (status) {
@@ -115,6 +145,10 @@ class DeliveryLot {
     DeliveryStatus? status,
     bool? atDeliveryPoint,
     int? loadingOrder,
+    DeliveryAssignment? assignment,
+    String? latitude,
+    String? longitude,
+    DateTime? customerLocationCapturedAt,
   }) {
     return DeliveryLot(
       clientName: clientName,
@@ -125,12 +159,15 @@ class DeliveryLot {
       farmName: farmName,
       companyName: companyName,
       contactNumber: contactNumber,
-      latitude: latitude,
-      longitude: longitude,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       invoicePath: invoicePath,
       loadingOrder: loadingOrder ?? this.loadingOrder,
       atDeliveryPointState: atDeliveryPoint ?? this.atDeliveryPoint,
       status: status ?? this.status,
+      assignment: assignment ?? this.assignment,
+      customerLocationCapturedAt:
+          customerLocationCapturedAt ?? this.customerLocationCapturedAt,
     );
   }
 }
@@ -146,6 +183,7 @@ class DeliveryModel {
   final bool paymentStatus;
   final String? invoicePath;
   final List<DeliveryLot> lots;
+  final DeliveryAssignment? assignment;
 
   const DeliveryModel({
     required this.id,
@@ -158,6 +196,7 @@ class DeliveryModel {
     this.paymentStatus = false,
     this.invoicePath,
     this.lots = const [],
+    this.assignment,
   });
 
   bool get allLotsLoaded =>
@@ -204,6 +243,10 @@ class DeliveryModel {
   String get deliveryProgressLabel =>
       '$completedDeliveryCount/$deliveryCount Delivery Completed';
 
+  String get assignedVehicleId => assignment?.vehicleId ?? '';
+
+  String get assignedVehicleLabel => assignment?.vehicleLabel ?? '';
+
   DeliveryModel copyWith({DeliveryStatus? status, List<DeliveryLot>? lots}) {
     return DeliveryModel(
       id: id,
@@ -216,6 +259,7 @@ class DeliveryModel {
       paymentStatus: paymentStatus,
       invoicePath: invoicePath,
       lots: lots ?? this.lots,
+      assignment: assignment,
     );
   }
 }

@@ -95,7 +95,7 @@ class ClientContactRow extends StatelessWidget {
           timeLimit: Duration(seconds: 15),
         ),
       );
-      final directionsUri = buildGoogleMapsDirectionsUri(
+      final directionsUri = buildOpenStreetMapDirectionsUri(
         originLatitude: current.latitude,
         originLongitude: current.longitude,
         destinationLatitude: latitude,
@@ -106,13 +106,13 @@ class ClientContactRow extends StatelessWidget {
         mode: LaunchMode.externalApplication,
       );
       if (!opened && context.mounted) {
-        _showNavigationError(context, 'Could not open Google Maps.');
+        _showNavigationError(context, 'Could not open OpenStreetMap.');
       }
     } catch (_) {
       if (context.mounted) {
         _showNavigationError(
           context,
-          'Could not get your current location or open Google Maps.',
+          'Could not get your current location or open OpenStreetMap.',
         );
       }
     }
@@ -186,16 +186,16 @@ class ClientContactRow extends StatelessWidget {
   }
 }
 
-Uri buildGoogleMapsDirectionsUri({
+Uri buildOpenStreetMapDirectionsUri({
   required double originLatitude,
   required double originLongitude,
   required double destinationLatitude,
   required double destinationLongitude,
 }) {
-  return Uri.https('www.google.com', '/maps/dir/', {
-    'api': '1',
-    'origin': '$originLatitude,$originLongitude',
-    'destination': '$destinationLatitude,$destinationLongitude',
-    'travelmode': 'driving',
+  return Uri.https('www.openstreetmap.org', '/directions', {
+    'engine': 'fossgis_osrm_car',
+    'route':
+        '$originLatitude,$originLongitude;'
+        '$destinationLatitude,$destinationLongitude',
   });
 }

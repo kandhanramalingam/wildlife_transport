@@ -71,3 +71,18 @@ The `/end` request uses `endAnimalPhotos`, `endAnimalVideos`,
 The mobile workflow uses this endpoint for every intermediate phase. It does
 not call `start-loading`, `complete-loading`, `start-trip`,
 `at-delivery-location`, `start-offloading`, or `complete-offloading`.
+
+## Location integration contracts
+
+The Flutter app now consumes the contracts agreed in
+`FIREBASE_LOCATION_TRACKING_HANDOFF.md`. These endpoints must be supplied and
+documented by the NestJS backend:
+
+| Endpoint | Mobile use | Request keys |
+| --- | --- | --- |
+| `POST /driver-auth/delivery/{id}/location` | Submit an active-trip reading | `latitude`, `longitude`, `accuracyMetres`, `recordedAt` |
+| `PUT /driver-auth/delivery/{id}/customer-location` | Persist and mirror a customer pin | `buyerId`, `latitude`, `longitude`, `accuracyMetres`, `capturedAt` |
+
+Both endpoints use the existing driver bearer token. The app queues driver
+readings while offline. Customer-pin saves are interactive and report failures
+immediately instead of being queued.

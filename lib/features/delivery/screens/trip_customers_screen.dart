@@ -4,10 +4,13 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/config/environment.dart';
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/error/failure.dart';
+import '../../../core/location/current_location.dart';
 import '../../../core/theme/app_theme.dart';
 import '../domain/delivery_repository.dart';
 import '../models/delivery_model.dart';
+import '../models/location_tracking.dart';
 import '../widgets/client_contact_row.dart';
+import '../widgets/customer_location_confirmation_sheet.dart';
 import 'start_delivery/start_delivery_screen.dart';
 
 class TripCustomersScreen extends StatefulWidget {
@@ -24,6 +27,7 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
   DeliveryRepository? _repository;
   String? _activeCustomerDeliveryId;
   String? _startingOffloadingDeliveryId;
+  String? _savingLocationDeliveryId;
 
   @override
   void initState() {
@@ -38,6 +42,7 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
               address: widget.delivery.clientAddress,
               invoicePath: widget.delivery.invoicePath,
               status: DeliveryStatus.inProgress,
+              assignment: widget.delivery.assignment,
             ),
           ]
         : List.of(widget.delivery.lotsInOffloadingOrder);
@@ -69,7 +74,12 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
       setState(() => _startingOffloadingDeliveryId = customer.deliveryId);
       try {
         await (_repository ??= AppDependencies.createDeliveryRepository())
-            .atDeliveryLocation(customer.deliveryId);
+            .atDeliveryLocation(
+              customer.deliveryId,
+              vehicleId:
+                  customer.assignment?.vehicleId ??
+                  widget.delivery.assignedVehicleId,
+            );
       } on Failure catch (failure) {
         _showError(failure.message);
         return;
@@ -98,7 +108,12 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
       setState(() => _startingOffloadingDeliveryId = customer.deliveryId);
       try {
         await (_repository ??= AppDependencies.createDeliveryRepository())
-            .startOffloading(customer.deliveryId);
+            .startOffloading(
+              customer.deliveryId,
+              vehicleId:
+                  customer.assignment?.vehicleId ??
+                  widget.delivery.assignedVehicleId,
+            );
       } on Failure catch (failure) {
         _showError(failure.message);
         return;
@@ -129,6 +144,7 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
       clientAddress: customer.address,
       status: DeliveryStatus.inProgress,
       paymentStatus: widget.delivery.paymentStatus,
+      assignment: customer.assignment ?? widget.delivery.assignment,
     );
     final completed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -187,6 +203,72 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
     }
   }
 
+  Future<void> _storeCustomerLocation(DeliveryLot customer) async {
+    if (_savingLocationDeliveryId != null) return;
+    setState(() => _savingLocationDeliveryId = customer.deliveryId);
+    try {
+      final coordinates = await getCurrentCoordinates();
+      if (!mounted) return;
+      final latitude = double.parse(coordinates.latitude);
+      final longitude = double.parse(coordinates.longitude);
+      final confirmed = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => CustomerLocationConfirmationSheet(
+          customerName: customer.clientName,
+          latitude: latitude,
+          longitude: longitude,
+          accuracyMetres: coordinates.accuracyMetres,
+          replacingExistingLocation:
+              customer.latitude.trim().isNotEmpty &&
+              customer.longitude.trim().isNotEmpty,
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      final saved =
+          await (_repository ??= AppDependencies.createDeliveryRepository())
+              .saveCustomerLocation(
+                CustomerLocationCapture(
+                  deliveryId: customer.deliveryId,
+                  buyerId: customer.buyerId,
+                  latitude: latitude,
+                  longitude: longitude,
+                  accuracyMetres: coordinates.accuracyMetres,
+                  capturedAt: coordinates.recordedAt,
+                ),
+              );
+      if (!mounted) return;
+      setState(() {
+        _customers = _customers
+            .map(
+              (item) => item.deliveryId == customer.deliveryId
+                  ? item.copyWith(
+                      latitude: saved.latitude.toStringAsFixed(6),
+                      longitude: saved.longitude.toStringAsFixed(6),
+                      customerLocationCapturedAt: saved.capturedAt,
+                    )
+                  : item,
+            )
+            .toList(growable: false);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Customer location saved.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on Failure catch (failure) {
+      _showError(failure.message);
+    } on CurrentLocationException catch (error) {
+      _showError(error.message);
+    } catch (_) {
+      _showError('Could not save the customer location. Please try again.');
+    } finally {
+      if (mounted) setState(() => _savingLocationDeliveryId = null);
+    }
+  }
+
   void _showInvoiceError() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -233,13 +315,17 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
         final isActive = _activeCustomerDeliveryId == customer.deliveryId;
         final isLocked = _activeCustomerDeliveryId != null && !isActive;
         final isStarting = _startingOffloadingDeliveryId == customer.deliveryId;
+        final isSavingLocation =
+            _savingLocationDeliveryId == customer.deliveryId;
         return _CustomerCard(
           customer: customer,
           isActive: isActive,
           isLocked: isLocked,
           isStarting: isStarting,
+          isSavingLocation: isSavingLocation,
           onArrived: () => _startOffLoading(customer),
           onViewInvoice: () => _viewInvoice(customer),
+          onStoreLocation: () => _storeCustomerLocation(customer),
         );
       },
     );
@@ -251,16 +337,20 @@ class _CustomerCard extends StatelessWidget {
   final bool isActive;
   final bool isLocked;
   final bool isStarting;
+  final bool isSavingLocation;
   final VoidCallback onArrived;
   final VoidCallback onViewInvoice;
+  final VoidCallback onStoreLocation;
 
   const _CustomerCard({
     required this.customer,
     required this.isActive,
     required this.isLocked,
     required this.isStarting,
+    required this.isSavingLocation,
     required this.onArrived,
     required this.onViewInvoice,
+    required this.onStoreLocation,
   });
 
   @override
@@ -384,6 +474,40 @@ class _CustomerCard extends StatelessWidget {
                 ].join('  •  '),
               ),
             ],
+            if (customer.customerLocationCapturedAt != null) ...[
+              const SizedBox(height: 8),
+              _ClientDetailRow(
+                icon: Icons.check_circle_outline,
+                value:
+                    'Customer location saved at '
+                    '${_formatCapturedTime(customer.customerLocationCapturedAt!)}',
+              ),
+            ],
+            if (isActive && !customer.deliveryCompleted) ...[
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: isStarting || isSavingLocation
+                      ? null
+                      : onStoreLocation,
+                  icon: Icon(
+                    isSavingLocation
+                        ? Icons.hourglass_top
+                        : Icons.add_location_alt_outlined,
+                  ),
+                  label: Text(
+                    isSavingLocation
+                        ? 'Saving Customer Location...'
+                        : customer.latitude.isNotEmpty &&
+                              customer.longitude.isNotEmpty
+                        ? 'Update Customer Location'
+                        : 'Store Customer Lat/Longs',
+                  ),
+                ),
+              ),
+            ],
             if (!customer.deliveryCompleted) ...[
               const SizedBox(height: 14),
               SizedBox(
@@ -416,6 +540,13 @@ class _CustomerCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _formatCapturedTime(DateTime value) {
+    final local = value.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
 

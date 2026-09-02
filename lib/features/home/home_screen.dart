@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../delivery/screens/delivery_screen.dart';
 import '../profile/screens/profile_screen.dart';
+import '../../core/location/tracking_status_banner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,17 +13,18 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    DeliveryScreen(),
-    ProfileScreen(),
-  ];
+  final List<Widget> _screens = const [DeliveryScreen(), ProfileScreen()];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: Column(
+        children: [
+          const TrackingStatusBanner(),
+          Expanded(
+            child: IndexedStack(index: _currentIndex, children: _screens),
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,

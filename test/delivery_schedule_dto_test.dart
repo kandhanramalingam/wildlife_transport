@@ -295,4 +295,58 @@ void main() {
     expect(dto.lots[1].buyerName, '5050');
     expect(dto.lots[2].buyerName, '5161');
   });
+
+  test('selects only the authenticated driver assignment and status', () {
+    final dto = DeliveryScheduleDto.fromJson({
+      '_id': 'shared-delivery',
+      'buyerId': 'buyer-1',
+      'buyerName': 'Buyer',
+      'address': 'Address',
+      'auctionId': 'auction-1',
+      'scheduleDate': '2026-08-30T10:00:00.000Z',
+      'deliveryStatus': 'pending',
+      'paymentStatus': true,
+      'assignments': [
+        {
+          'driverId': {'_id': 'driver-1', 'name': 'First Driver'},
+          'vehicleId': {'_id': 'vehicle-1', 'registrationNumber': 'TRUCK-ONE'},
+          'deliveryStatus': 'loading_completed',
+        },
+        {
+          'driverId': {'_id': 'driver-2', 'name': 'Second Driver'},
+          'vehicleId': {'_id': 'vehicle-2', 'registrationNumber': 'TRUCK-TWO'},
+          'deliveryStatus': 'in_delivery',
+        },
+      ],
+    }, authenticatedDriverId: 'driver-2');
+
+    expect(dto.assignment?.driverId, 'driver-2');
+    expect(dto.assignment?.vehicleId, 'vehicle-2');
+    expect(dto.assignment?.vehicleRegistrationNumber, 'TRUCK-TWO');
+    expect(dto.deliveryStatus, 'in_delivery');
+    expect(dto.assignment?.vehicleRegistrationNumber, isNot('TRUCK-ONE'));
+  });
+
+  test(
+    'does not guess an assignment when multiple drivers cannot be matched',
+    () {
+      final dto = DeliveryScheduleDto.fromJson({
+        '_id': 'shared-delivery',
+        'buyerId': 'buyer-1',
+        'buyerName': 'Buyer',
+        'address': 'Address',
+        'auctionId': 'auction-1',
+        'scheduleDate': '2026-08-30T10:00:00.000Z',
+        'deliveryStatus': 'pending',
+        'paymentStatus': true,
+        'assignments': [
+          {'driverId': 'driver-1', 'vehicleId': 'vehicle-1'},
+          {'driverId': 'driver-2', 'vehicleId': 'vehicle-2'},
+        ],
+      }, authenticatedDriverId: 'unknown-driver');
+
+      expect(dto.assignment, isNull);
+      expect(dto.deliveryStatus, 'pending');
+    },
+  );
 }

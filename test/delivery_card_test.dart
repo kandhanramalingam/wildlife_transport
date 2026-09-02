@@ -61,6 +61,43 @@ void main() {
     expect(find.text('Continue Loading'), findsOneWidget);
     expect(find.text('Waiting for Loading Turn'), findsOneWidget);
   });
+
+  testWidgets('shows only the authenticated driver vehicle and status', (
+    tester,
+  ) async {
+    final delivery = _delivery().copyWith(status: DeliveryStatus.inProgress);
+    final assigned = DeliveryModel(
+      id: delivery.id,
+      dateTime: delivery.dateTime,
+      clientName: delivery.clientName,
+      clientAddress: delivery.clientAddress,
+      status: DeliveryStatus.inProgress,
+      lots: delivery.lots,
+      assignment: const DeliveryAssignment(
+        driverId: 'driver-2',
+        driverName: 'Second Driver',
+        vehicleId: 'vehicle-2',
+        vehicleRegistrationNumber: 'TRUCK-TWO',
+        status: DeliveryStatus.inProgress,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DeliveryCard(
+            delivery: assigned,
+            onStartLoading: (_) {},
+            onStartTrip: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Assigned vehicle: TRUCK-TWO'), findsOneWidget);
+    expect(find.text('Your status: In delivery'), findsOneWidget);
+    expect(find.textContaining('TRUCK-ONE'), findsNothing);
+  });
 }
 
 DeliveryModel _delivery({DeliveryStatus firstStatus = DeliveryStatus.pending}) {

@@ -112,10 +112,29 @@ Selecting it:
 
 1. Calls `PATCH driver-auth/delivery/{deliveryId}/status` with
    `status: in_delivery`.
-2. Opens the **Customer Delivery** route screen.
+2. Starts active-delivery location tracking.
+3. Opens the **Customer Delivery** route screen.
 
 If the status API request fails, the trip is not started and an error message
 is displayed.
+
+### Active-delivery location tracking
+
+- Before the first tracked trip, the app explains that location is collected
+  only while a delivery is active.
+- The app captures an initial position and targets another reading every 30
+  minutes while the vehicle is moving.
+- Android uses a visible foreground-service notification during background
+  tracking. iOS uses the Location Updates background mode.
+- Operating-system scheduling and battery controls mean the 30-minute interval
+  is best effort rather than exact.
+- Readings are sent to
+  `POST driver-auth/delivery/{deliveryId}/location` using the driver JWT.
+- Failed readings are stored in an on-device queue and retried oldest-first.
+- A banner shows whether tracking is active, the last successful upload, queued
+  readings, and permission/network warnings.
+- Tracking is restored when the schedule reloads with an active trip.
+- Tracking stops when the final customer is completed or the driver logs out.
 
 For a trip already in progress, the listing button reads **Continue Delivery**
 and reopens the customer route without sending the status patch again.
@@ -140,8 +159,27 @@ Only one customer can be actively off-loaded at a time. Other customer buttons r
 Arrival uses two deliberate confirmations:
 
 1. Select **At delivery point** to patch the status to `arrived_at_location`.
-2. Select **Begin Offloading** to patch the status to `offloading_started` and
+2. The active customer card displays **Store Customer Lat/Longs**.
+3. Select **Begin Offloading** to patch the status to `offloading_started` and
    open the off-loading workflow.
+
+### Storing the customer delivery pin
+
+After arrival, the driver can select **Store Customer Lat/Longs**. The app:
+
+1. Captures a high-accuracy GPS position.
+2. Shows the coordinate and accuracy on an OpenStreetMap preview.
+3. Requires confirmation before saving.
+4. Warns when an existing customer pin will be replaced.
+5. Calls
+   `PUT driver-auth/delivery/{deliveryId}/customer-location` with the buyer ID,
+   coordinates, accuracy, and UTC capture time.
+6. Updates the customer card with the canonical coordinates returned by the
+   backend.
+
+Map-tile failure does not change the captured coordinate. The coordinate text
+remains visible so it can still be confirmed. Customer-pin capture is optional
+unless the backend/business workflow later makes it mandatory.
 
 ### Required off-loading workflow
 

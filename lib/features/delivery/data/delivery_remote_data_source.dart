@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../models/delivery_model.dart';
+import '../models/location_tracking.dart';
 import 'delivery_schedule_dto.dart';
 
 abstract interface class DeliveryRemoteDataSource {
@@ -12,15 +13,24 @@ abstract interface class DeliveryRemoteDataSource {
   });
   Future<String> uploadImage(List<int> bytes, String filename);
   Future<String> uploadVideo(List<int> bytes, String filename);
-  Future<void> updateStatus(String deliveryId, DeliveryStatusUpdate status);
+  Future<void> updateStatus(
+    String deliveryId,
+    DeliveryStatusUpdate status, {
+    String? vehicleId,
+  });
   Future<void> startDelivery(String deliveryId, Map<String, dynamic> body);
   Future<void> endDelivery(String deliveryId, Map<String, dynamic> body);
+  Future<void> submitDriverLocation(DriverLocationReading reading);
+  Future<Map<String, dynamic>> saveCustomerLocation(
+    CustomerLocationCapture capture,
+  );
 }
 
 class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
   final Dio _dio;
+  final String? Function()? _authenticatedDriverId;
 
-  const DioDeliveryRemoteDataSource(this._dio);
+  const DioDeliveryRemoteDataSource(this._dio, [this._authenticatedDriverId]);
 
   @override
   Future<List<DeliveryScheduleDto>> getTodaySchedule({
@@ -43,11 +53,16 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
   @override
   Future<void> updateStatus(
     String deliveryId,
-    DeliveryStatusUpdate status,
-  ) async {
+    DeliveryStatusUpdate status, {
+    String? vehicleId,
+  }) async {
+    final normalizedVehicleId = vehicleId?.trim() ?? '';
     await _dio.patch<void>(
       'driver-auth/delivery/$deliveryId/status',
-      data: {'status': status.apiValue},
+      data: {
+        'status': status.apiValue,
+        if (normalizedVehicleId.isNotEmpty) 'vehicleId': normalizedVehicleId,
+      },
     );
   }
 
@@ -82,6 +97,29 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
     await _dio.post<void>('driver-auth/delivery/$deliveryId/end', data: body);
   }
 
+  @override
+  Future<void> submitDriverLocation(DriverLocationReading reading) async {
+    await _dio.post<void>(
+      'driver-auth/delivery/${reading.deliveryId}/location',
+      data: reading.toApiJson(),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> saveCustomerLocation(
+    CustomerLocationCapture capture,
+  ) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      'driver-auth/delivery/${capture.deliveryId}/customer-location',
+      data: capture.toApiJson(),
+    );
+    final data = response.data;
+    if (data == null) {
+      throw const FormatException('Empty customer location response');
+    }
+    return data;
+  }
+
   Future<List<DeliveryScheduleDto>> _getSchedule(
     String path,
     CancelToken? cancelToken,
@@ -95,7 +133,10 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
     if (data == null) throw const FormatException('Empty schedule response');
     return data
         .map(
-          (item) => DeliveryScheduleDto.fromJson(item as Map<String, dynamic>),
+          (item) => DeliveryScheduleDto.fromJson(
+            item as Map<String, dynamic>,
+            authenticatedDriverId: _authenticatedDriverId?.call(),
+          ),
         )
         .toList(growable: false);
   }

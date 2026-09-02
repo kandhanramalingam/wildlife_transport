@@ -7,11 +7,21 @@ Run the app with the development API configuration:
 ```sh
 flutter run --dart-define-from-file=config/dev.json
 ```
+
+Build a development APK with the same configuration:
+
+```sh
 flutter build apk --debug --dart-define-from-file=config/dev.json
-ř
+```
+
 The configured base URL is `http://transport.wildlifeauctions.co.za:8081`.
 Environment URLs live in configuration files and are supplied as compile-time
 defines rather than being hardcoded in Dart source.
+
+`OSM_TILE_URL` configures the OpenStreetMap-compatible tile provider used by
+the customer-pin preview. The default development value uses the standard OSM
+tile endpoint. Production should use an approved OSM-derived provider or a
+self-hosted tile service with appropriate availability terms.
 
 A new Flutter project.
 

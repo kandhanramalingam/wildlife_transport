@@ -32,6 +32,8 @@ class DeliveryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDateTimeRow(),
+            const SizedBox(height: 10),
+            _buildAssignmentSummary(),
             const SizedBox(height: 12),
             _buildDivider(),
             const SizedBox(height: 12),
@@ -83,6 +85,36 @@ class DeliveryCard extends StatelessWidget {
   Widget _buildDivider() {
     return const Divider(height: 1, color: Color(0xFFEEEEEE));
   }
+
+  Widget _buildAssignmentSummary() {
+    final vehicle = delivery.assignedVehicleLabel;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (vehicle.isNotEmpty)
+          _AssignmentChip(
+            icon: Icons.local_shipping_outlined,
+            label: 'Assigned vehicle: $vehicle',
+          ),
+        _AssignmentChip(
+          icon: Icons.person_pin_circle_outlined,
+          label: 'Your status: ${_statusLabel(delivery.status)}',
+        ),
+      ],
+    );
+  }
+
+  String _statusLabel(DeliveryStatus status) => switch (status) {
+    DeliveryStatus.pending => 'Pending',
+    DeliveryStatus.loading => 'Loading',
+    DeliveryStatus.loadingCompleted => 'Loading completed',
+    DeliveryStatus.inProgress => 'In delivery',
+    DeliveryStatus.atDeliveryPoint => 'At delivery location',
+    DeliveryStatus.offloading => 'Offloading',
+    DeliveryStatus.completed => 'Completed',
+  };
 
   Widget _buildLot(int index, DeliveryLot lot) {
     final loaded = lot.loadingCompleted;
@@ -325,6 +357,41 @@ class _LoadingOrderBadge extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+}
+
+class _AssignmentChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _AssignmentChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: AppTheme.primary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppTheme.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

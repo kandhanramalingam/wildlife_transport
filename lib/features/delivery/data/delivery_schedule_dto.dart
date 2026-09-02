@@ -11,6 +11,7 @@ class DeliveryScheduleDto {
   final bool paymentStatus;
   final String invoicePath;
   final List<DeliveryLotDto> lots;
+  final DeliveryAssignmentDto? assignment;
 
   const DeliveryScheduleDto({
     required this.id,
@@ -25,9 +26,13 @@ class DeliveryScheduleDto {
     required this.paymentStatus,
     this.invoicePath = '',
     required this.lots,
+    this.assignment,
   });
 
-  factory DeliveryScheduleDto.fromJson(Map<String, dynamic> json) {
+  factory DeliveryScheduleDto.fromJson(
+    Map<String, dynamic> json, {
+    String? authenticatedDriverId,
+  }) {
     final id = json['_id'].toString();
     final mainBuyer = _record(
       json['buyer'] ?? json['client'] ?? json['buyerId'],
@@ -45,7 +50,12 @@ class DeliveryScheduleDto {
       json['address'] ?? _firstValue(mainBuyer, ['address', 'farmAddress']),
       '',
     );
-    final deliveryStatus = json['deliveryStatus']?.toString() ?? 'pending';
+    final assignment = _parseCurrentAssignment(json, authenticatedDriverId);
+    final deliveryStatus =
+        assignment?.deliveryStatus ??
+        json['driverDeliveryStatus']?.toString() ??
+        json['deliveryStatus']?.toString() ??
+        'pending';
     return DeliveryScheduleDto(
       id: id,
       buyerId: buyerId,
@@ -63,6 +73,7 @@ class DeliveryScheduleDto {
       deliveryStatus: deliveryStatus,
       paymentStatus: json['paymentStatus'] == true,
       invoicePath: _stringValue(json['invoicePath']),
+      assignment: assignment,
       lots: _parseLots(
         mainDeliveryId: id,
         mainBuyerId: buyerId,
@@ -105,6 +116,8 @@ class DeliveryScheduleDto {
           json['loadingOrder'] ?? json['loadingSequence'],
         ),
         mainStatus: deliveryStatus,
+        mainAssignment: assignment,
+        authenticatedDriverId: authenticatedDriverId,
         buyers: json['combinedLotBuyers'],
         deliveries: json['combinedLotDeliveries'],
       ),
@@ -124,6 +137,8 @@ class DeliveryScheduleDto {
     required String mainInvoicePath,
     required int? mainLoadingOrder,
     required String mainStatus,
+    required DeliveryAssignmentDto? mainAssignment,
+    required String? authenticatedDriverId,
     required dynamic buyers,
     required dynamic deliveries,
   }) {
@@ -141,6 +156,7 @@ class DeliveryScheduleDto {
         invoicePath: mainInvoicePath,
         loadingOrder: mainLoadingOrder,
         deliveryStatus: mainStatus,
+        assignment: mainAssignment,
         mainBuyer: true,
       ),
     ];
@@ -189,6 +205,11 @@ class DeliveryScheduleDto {
           delivery = <String, dynamic>{'deliveryId': rawDelivery};
         }
       }
+
+      final assignment = _parseCurrentAssignment(<String, dynamic>{
+        ...buyer,
+        ...delivery,
+      }, authenticatedDriverId);
 
       final deliveryId = _firstString(delivery, ['deliveryId', '_id', 'id']);
       result.add(
@@ -270,11 +291,14 @@ class DeliveryScheduleDto {
                 buyer['loadingSequence'],
           ),
           deliveryStatus:
-              (delivery['deliveryStatus'] ??
+              (assignment?.deliveryStatus ??
+                      delivery['driverDeliveryStatus'] ??
+                      delivery['deliveryStatus'] ??
                       delivery['status'] ??
                       buyer['deliveryStatus'] ??
                       'pending')
                   .toString(),
+          assignment: assignment,
           mainBuyer: false,
         ),
       );
@@ -321,6 +345,67 @@ class DeliveryScheduleDto {
   static int? _intValue(dynamic value) =>
       value is int ? value : int.tryParse(value?.toString().trim() ?? '');
 
+  static DeliveryAssignmentDto? _parseCurrentAssignment(
+    Map<String, dynamic> json,
+    String? authenticatedDriverId,
+  ) {
+    final direct = _record(
+      json['currentAssignment'] ??
+          json['driverAssignment'] ??
+          json['assignment'],
+    );
+    if (direct.isNotEmpty) {
+      return DeliveryAssignmentDto.fromJson(direct);
+    }
+
+    final rawAssignments = json['assignments'];
+    final assignments = rawAssignments is List
+        ? rawAssignments
+              .whereType<Map>()
+              .map((value) => Map<String, dynamic>.from(value))
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    final driverId = authenticatedDriverId?.trim() ?? '';
+    Map<String, dynamic>? selected;
+    if (driverId.isNotEmpty) {
+      for (final assignment in assignments) {
+        final assignmentDriverId = _entityId(
+          assignment['driverId'] ?? assignment['driver'],
+        );
+        if (assignmentDriverId == driverId) {
+          selected = assignment;
+          break;
+        }
+      }
+    }
+    if (selected == null) {
+      for (final assignment in assignments) {
+        if (assignment['isCurrentDriver'] == true ||
+            assignment['isCurrentAssignment'] == true) {
+          selected = assignment;
+          break;
+        }
+      }
+    }
+    if (selected == null && assignments.length == 1) {
+      selected = assignments.single;
+    }
+    if (selected != null) return DeliveryAssignmentDto.fromJson(selected);
+
+    // Schedule endpoints are already scoped to the authenticated driver. A
+    // singular top-level vehicle is therefore safe as a compatibility fallback;
+    // never select from vehicleIds because that could expose another assignment.
+    final vehicle = json['assignedVehicle'] ?? json['vehicle'];
+    final vehicleId = _entityId(json['vehicleId'] ?? vehicle);
+    if (vehicleId.isEmpty) return null;
+    return DeliveryAssignmentDto.fromJson({
+      'driverId': driverId,
+      'driverName': json['driverName'],
+      'vehicleId': json['vehicleId'] ?? vehicle,
+      'deliveryStatus': json['driverDeliveryStatus'],
+    });
+  }
+
   static String _name(dynamic value, String fallback) {
     final name = value?.toString().trim() ?? '';
     return name.isEmpty ? fallback : name;
@@ -346,6 +431,7 @@ class DeliveryLotDto {
   final int? loadingOrder;
   final String deliveryStatus;
   final bool mainBuyer;
+  final DeliveryAssignmentDto? assignment;
 
   const DeliveryLotDto({
     required this.deliveryId,
@@ -361,5 +447,68 @@ class DeliveryLotDto {
     this.loadingOrder,
     required this.deliveryStatus,
     required this.mainBuyer,
+    this.assignment,
   });
+}
+
+class DeliveryAssignmentDto {
+  final String driverId;
+  final String driverName;
+  final String vehicleId;
+  final String vehicleRegistrationNumber;
+  final String vehicleDescription;
+  final String? deliveryStatus;
+
+  const DeliveryAssignmentDto({
+    required this.driverId,
+    required this.driverName,
+    required this.vehicleId,
+    required this.vehicleRegistrationNumber,
+    required this.vehicleDescription,
+    required this.deliveryStatus,
+  });
+
+  factory DeliveryAssignmentDto.fromJson(Map<String, dynamic> json) {
+    final driver = DeliveryScheduleDto._record(
+      json['driverId'] ?? json['driver'],
+    );
+    final vehicle = DeliveryScheduleDto._record(
+      json['vehicleId'] ?? json['vehicle'],
+    );
+    final rawVehicle = json['vehicleId'] ?? json['vehicle'];
+    return DeliveryAssignmentDto(
+      driverId: DeliveryScheduleDto._entityId(
+        json['driverId'] ?? json['driver'],
+      ),
+      driverName: DeliveryScheduleDto._stringValue(
+        json['driverName'] ??
+            DeliveryScheduleDto._firstValue(driver, ['name', 'driverName']),
+      ),
+      vehicleId: DeliveryScheduleDto._entityId(rawVehicle),
+      vehicleRegistrationNumber: DeliveryScheduleDto._stringValue(
+        json['vehicleRegistrationNumber'] ??
+            json['registrationNumber'] ??
+            DeliveryScheduleDto._firstValue(vehicle, [
+              'registrationNumber',
+              'registration',
+            ]),
+      ),
+      vehicleDescription: DeliveryScheduleDto._stringValue(
+        json['vehicleDescription'] ??
+            DeliveryScheduleDto._firstValue(vehicle, [
+              'description',
+              'make',
+              'code',
+            ]),
+      ),
+      deliveryStatus:
+          DeliveryScheduleDto._stringValue(
+            json['deliveryStatus'] ?? json['driverStatus'] ?? json['status'],
+          ).isEmpty
+          ? null
+          : DeliveryScheduleDto._stringValue(
+              json['deliveryStatus'] ?? json['driverStatus'] ?? json['status'],
+            ),
+    );
+  }
 }

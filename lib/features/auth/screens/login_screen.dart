@@ -56,7 +56,9 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    await AppDependencies.sessionController.markAuthenticated();
+    await AppDependencies.sessionController.markAuthenticated(
+      driverId: result.driver.id,
+    );
   }
 
   @override

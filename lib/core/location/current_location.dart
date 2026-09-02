@@ -3,8 +3,15 @@ import 'package:geolocator/geolocator.dart';
 class CurrentCoordinates {
   final String latitude;
   final String longitude;
+  final double accuracyMetres;
+  final DateTime recordedAt;
 
-  const CurrentCoordinates({required this.latitude, required this.longitude});
+  const CurrentCoordinates({
+    required this.latitude,
+    required this.longitude,
+    this.accuracyMetres = 0,
+    required this.recordedAt,
+  });
 }
 
 class CurrentLocationException implements Exception {
@@ -48,6 +55,8 @@ Future<CurrentCoordinates> getCurrentCoordinates() async {
     return CurrentCoordinates(
       latitude: position.latitude.toStringAsFixed(6),
       longitude: position.longitude.toStringAsFixed(6),
+      accuracyMetres: position.accuracy,
+      recordedAt: position.timestamp.toUtc(),
     );
   } catch (_) {
     throw const CurrentLocationException(

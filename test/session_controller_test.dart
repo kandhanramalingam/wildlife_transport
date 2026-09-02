@@ -8,6 +8,7 @@ void main() {
   test('restores a session when the stored JWT is not expired', () async {
     final storage = _MemoryTokenStorage(
       _jwt(DateTime.now().add(const Duration(hours: 1))),
+      'driver-1',
     );
     final controller = SessionController(storage);
 
@@ -15,6 +16,7 @@ void main() {
 
     expect(controller.status, SessionStatus.authenticated);
     expect(storage.token, isNotNull);
+    expect(controller.driverId, 'driver-1');
     controller.dispose();
   });
 
@@ -42,15 +44,25 @@ String _jwt(DateTime expiration) {
 
 class _MemoryTokenStorage implements TokenStorage {
   String? token;
+  String? driverId;
 
-  _MemoryTokenStorage(this.token);
+  _MemoryTokenStorage(this.token, [this.driverId]);
 
   @override
-  Future<void> clear() async => token = null;
+  Future<void> clear() async {
+    token = null;
+    driverId = null;
+  }
 
   @override
   Future<String?> readAccessToken() async => token;
 
   @override
+  Future<String?> readDriverId() async => driverId;
+
+  @override
   Future<void> saveAccessToken(String token) async => this.token = token;
+
+  @override
+  Future<void> saveDriverId(String driverId) async => this.driverId = driverId;
 }

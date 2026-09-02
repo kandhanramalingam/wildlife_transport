@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wildlife_transport/core/error/failure.dart';
 import 'package:wildlife_transport/features/delivery/domain/delivery_repository.dart';
 import 'package:wildlife_transport/features/delivery/models/delivery_model.dart';
+import 'package:wildlife_transport/features/delivery/models/location_tracking.dart';
 import 'package:wildlife_transport/features/delivery/models/start_delivery_submission.dart';
 import 'package:wildlife_transport/features/delivery/presentation/today_deliveries_controller.dart';
 
@@ -61,32 +62,53 @@ class _OverlappingScheduleRepository implements DeliveryRepository {
   }) async => const [];
 
   @override
-  Future<void> atDeliveryLocation(String deliveryId) async {}
+  Future<void> atDeliveryLocation(
+    String deliveryId, {
+    String? vehicleId,
+  }) async {}
 
   @override
   Future<void> completeLoading(
     String deliveryId,
-    StartDeliverySubmission submission,
-  ) async {}
+    StartDeliverySubmission submission, {
+    String? vehicleId,
+  }) async {}
 
   @override
   Future<void> completeOffloading(
     String deliveryId,
-    CompleteOffloadingSubmission submission,
-  ) async {}
+    CompleteOffloadingSubmission submission, {
+    String? vehicleId,
+  }) async {}
 
   @override
-  Future<void> startLoading(String deliveryId) async {}
+  Future<void> startLoading(String deliveryId, {String? vehicleId}) async {}
 
   @override
-  Future<void> startOffloading(String deliveryId) async {}
+  Future<void> startOffloading(String deliveryId, {String? vehicleId}) async {}
 
   @override
-  Future<void> startTrip(String deliveryId) async {}
+  Future<void> startTrip(String deliveryId, {String? vehicleId}) async {}
 
   @override
   Future<void> updateStatus(
     String deliveryId,
-    DeliveryStatusUpdate status,
-  ) async {}
+    DeliveryStatusUpdate status, {
+    String? vehicleId,
+  }) async {}
+
+  @override
+  Future<void> submitDriverLocation(DriverLocationReading reading) async {}
+
+  @override
+  Future<SavedCustomerLocation> saveCustomerLocation(
+    CustomerLocationCapture capture,
+  ) async => SavedCustomerLocation(
+    clientId: 'client-1',
+    buyerId: capture.buyerId,
+    latitude: capture.latitude,
+    longitude: capture.longitude,
+    accuracyMetres: capture.accuracyMetres,
+    capturedAt: capture.capturedAt,
+  );
 }

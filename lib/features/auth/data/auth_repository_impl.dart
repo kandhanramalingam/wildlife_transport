@@ -26,6 +26,7 @@ class AuthRepositoryImpl implements AuthRepository {
         cancelToken: cancelToken,
       );
       await _tokenStorage.saveAccessToken(dto.accessToken);
+      await _tokenStorage.saveDriverId(dto.driver.id);
       return LoginResult(
         driver: Driver(
           id: dto.driver.id,

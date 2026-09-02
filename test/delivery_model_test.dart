@@ -196,4 +196,29 @@ void main() {
     ]);
     expect(delivery.nextLoadingOrder, 4);
   });
+
+  test('updates a saved customer pin without losing lot state', () {
+    const lot = DeliveryLot(
+      clientName: 'Customer',
+      buyerId: 'buyer-1',
+      mainBuyer: true,
+      deliveryId: 'delivery-1',
+      address: 'Address',
+      latitude: '-25.000000',
+      longitude: '28.000000',
+      status: DeliveryStatus.atDeliveryPoint,
+    );
+    final capturedAt = DateTime.utc(2026, 8, 30, 14, 5);
+
+    final updated = lot.copyWith(
+      latitude: '-25.751200',
+      longitude: '28.193400',
+      customerLocationCapturedAt: capturedAt,
+    );
+
+    expect(updated.latitude, '-25.751200');
+    expect(updated.longitude, '28.193400');
+    expect(updated.customerLocationCapturedAt, capturedAt);
+    expect(updated.status, DeliveryStatus.atDeliveryPoint);
+  });
 }

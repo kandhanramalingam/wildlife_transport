@@ -2,6 +2,10 @@ class Environment {
   Environment._();
 
   static const String _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const String osmTileUrl = String.fromEnvironment(
+    'OSM_TILE_URL',
+    defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  );
 
   static String get apiBaseUrl {
     if (_apiBaseUrl.isEmpty) {

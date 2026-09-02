@@ -170,6 +170,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
             endOdometerReading: photos.odometerReading!,
             buyerId: buyerId,
           ),
+          vehicleId: widget.delivery.assignedVehicleId,
         );
         if (mounted) Navigator.of(context).pop(true);
       } on Failure catch (failure) {
@@ -207,6 +208,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
           managerSignature: managerSignature,
           otherSignature: otherSignature,
         ),
+        vehicleId: widget.delivery.assignedVehicleId,
       );
       if (mounted) Navigator.of(context).pop(true);
     } on Failure catch (failure) {
