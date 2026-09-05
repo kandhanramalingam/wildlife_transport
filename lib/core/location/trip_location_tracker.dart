@@ -11,6 +11,9 @@ import 'trip_position_source.dart';
 class TripLocationTracker extends ChangeNotifier {
   static const trackingInterval = Duration(minutes: 30);
   static const maxQueuedReadings = 500;
+  static const webTrackingNotice =
+      'Keep this browser tab open and your screen awake during delivery. '
+      'Tracking may pause when the browser is in the background.';
 
   final DeliveryRepository _repository;
   final LocationQueueStore _queueStore;
@@ -54,9 +57,13 @@ class TripLocationTracker extends ChangeNotifier {
       await _ensureQueue();
       backgroundPermissionGranted = await _positionSource.prepare();
       if (!backgroundPermissionGranted) {
-        warningMessage =
-            'Background location is limited. Keep the app open or enable '
-            '“Allow all the time” in device settings.';
+        warningMessage = kIsWeb
+            ? webTrackingNotice
+            : defaultTargetPlatform == TargetPlatform.iOS
+            ? 'Background location is limited. Keep the app open or choose '
+                  '“Always” for Location in the app’s device settings.'
+            : 'Background location is limited. Keep the app open or enable '
+                  '“Allow all the time” in device settings.';
       }
       if (generation != _generation || activeDeliveryId != normalizedId) return;
       await flushPending();

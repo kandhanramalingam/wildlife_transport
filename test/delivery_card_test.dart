@@ -62,7 +62,7 @@ void main() {
     expect(find.text('Waiting for Loading Turn'), findsOneWidget);
   });
 
-  testWidgets('shows only the authenticated driver vehicle and status', (
+  testWidgets('shows the authenticated driver name and status', (
     tester,
   ) async {
     final delivery = _delivery().copyWith(status: DeliveryStatus.inProgress);
@@ -94,7 +94,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Assigned vehicle: TRUCK-TWO'), findsOneWidget);
+    expect(find.text('Assigned driver: Second Driver'), findsOneWidget);
     expect(find.text('Your status: In delivery'), findsOneWidget);
     expect(find.textContaining('TRUCK-ONE'), findsNothing);
   });

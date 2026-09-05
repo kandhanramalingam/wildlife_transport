@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../core/maps/delivery_google_map.dart';
 
-import '../../../core/config/environment.dart';
 import '../../../core/theme/app_theme.dart';
 
 class CustomerLocationConfirmationSheet extends StatelessWidget {
@@ -55,34 +53,14 @@ class CustomerLocationConfirmationSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: SizedBox(
                 height: 260,
-                child: FlutterMap(
-                  options: MapOptions(initialCenter: point, initialZoom: 16),
-                  children: [
-                    TileLayer(
-                      urlTemplate: Environment.osmTileUrl,
-                      userAgentPackageName: 'za.co.wildlifeauctions.transport',
+                child: DeliveryGoogleMap(
+                  target: point,
+                  markers: {
+                    Marker(
+                      markerId: const MarkerId('customer'),
+                      position: point,
                     ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: point,
-                          width: 48,
-                          height: 48,
-                          child: const Icon(
-                            Icons.location_pin,
-                            color: Colors.red,
-                            size: 48,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SimpleAttributionWidget(
-                      source: const Text('OpenStreetMap contributors'),
-                      onTap: () => launchUrl(
-                        Uri.parse('https://www.openstreetmap.org/copyright'),
-                      ),
-                    ),
-                  ],
+                  },
                 ),
               ),
             ),

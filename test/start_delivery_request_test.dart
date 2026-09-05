@@ -4,6 +4,7 @@ import 'package:wildlife_transport/features/delivery/models/start_delivery_submi
 void main() {
   test('serializes the start delivery API payload', () {
     const request = StartDeliveryRequest(
+      startMediaMetadata: [],
       startOdometerReading: 12500,
       startVehiclePhotos: ['uploads/images/vehicle.png'],
       startAnimalPhotos: ['uploads/images/animal.png'],
@@ -21,6 +22,7 @@ void main() {
     );
 
     expect(request.toJson(), {
+      'startMediaMetadata': [],
       'startOdometerReading': 12500,
       'startVehiclePhotos': ['uploads/images/vehicle.png'],
       'startAnimalPhotos': ['uploads/images/animal.png'],
@@ -40,6 +42,7 @@ void main() {
 
   test('serializes the end delivery API payload', () {
     const request = CompleteOffloadingRequest(
+      endMediaMetadata: [],
       endAnimalPhotos: ['uploads/images/end-animal.png'],
       endAnimalVideos: 'uploads/videos/off-loading.mp4',
       offLoadChecklist: [
@@ -51,6 +54,7 @@ void main() {
     );
 
     expect(request.toJson(), {
+      'endMediaMetadata': [],
       'endAnimalPhotos': ['uploads/images/end-animal.png'],
       'endAnimalVideos': 'uploads/videos/off-loading.mp4',
       'offLoadChecklist': [

@@ -64,7 +64,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      // Match the near-white canvas of the supplied brand artwork so the
+      // square image bounds are not visible on the login screen.
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -87,29 +89,18 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildLogo() {
     return Column(
       children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            color: AppTheme.primary,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const Icon(
-            Icons.local_shipping,
-            color: Colors.white,
-            size: 44,
+        Semantics(
+          label: 'AWA Transport',
+          image: true,
+          child: Image.asset(
+            'assets/branding/awa_transport_logo.png',
+            width: 280,
+            height: 190,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
           ),
         ),
-        const SizedBox(height: 16),
-        const Text(
-          'AWA Transport',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 10),
         const Text(
           'Delivery Partner Login',
           style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),

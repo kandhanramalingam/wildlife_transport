@@ -401,6 +401,7 @@ class DeliveryScheduleDto {
     return DeliveryAssignmentDto.fromJson({
       'driverId': driverId,
       'driverName': json['driverName'],
+      'driverDetails': json['driverDetails'],
       'vehicleId': json['vehicleId'] ?? vehicle,
       'deliveryStatus': json['driverDeliveryStatus'],
     });
@@ -470,7 +471,7 @@ class DeliveryAssignmentDto {
 
   factory DeliveryAssignmentDto.fromJson(Map<String, dynamic> json) {
     final driver = DeliveryScheduleDto._record(
-      json['driverId'] ?? json['driver'],
+      json['driverDetails'] ?? json['driverId'] ?? json['driver'],
     );
     final vehicle = DeliveryScheduleDto._record(
       json['vehicleId'] ?? json['vehicle'],
@@ -481,8 +482,11 @@ class DeliveryAssignmentDto {
         json['driverId'] ?? json['driver'],
       ),
       driverName: DeliveryScheduleDto._stringValue(
-        json['driverName'] ??
-            DeliveryScheduleDto._firstValue(driver, ['name', 'driverName']),
+        DeliveryScheduleDto._firstNonEmptyValue([
+          driver['name'],
+          json['driverName'],
+          driver['driverName'],
+        ]),
       ),
       vehicleId: DeliveryScheduleDto._entityId(rawVehicle),
       vehicleRegistrationNumber: DeliveryScheduleDto._stringValue(

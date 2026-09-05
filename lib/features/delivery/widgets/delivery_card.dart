@@ -87,16 +87,18 @@ class DeliveryCard extends StatelessWidget {
   }
 
   Widget _buildAssignmentSummary() {
-    final vehicle = delivery.assignedVehicleLabel;
+    final driverName = delivery.assignment?.driverName.trim() ?? '';
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (vehicle.isNotEmpty)
+        if (delivery.assignment != null)
           _AssignmentChip(
-            icon: Icons.local_shipping_outlined,
-            label: 'Assigned vehicle: $vehicle',
+            icon: Icons.person_outline,
+            label: driverName.isEmpty
+                ? 'Driver name unavailable'
+                : 'Assigned driver: $driverName',
           ),
         _AssignmentChip(
           icon: Icons.person_pin_circle_outlined,

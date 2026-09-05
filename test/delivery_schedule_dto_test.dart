@@ -313,7 +313,8 @@ void main() {
           'deliveryStatus': 'loading_completed',
         },
         {
-          'driverId': {'_id': 'driver-2', 'name': 'Second Driver'},
+          'driverId': 'driver-2',
+          'driverDetails': {'_id': 'driver-2', 'name': 'Second Driver'},
           'vehicleId': {'_id': 'vehicle-2', 'registrationNumber': 'TRUCK-TWO'},
           'deliveryStatus': 'in_delivery',
         },
@@ -321,6 +322,7 @@ void main() {
     }, authenticatedDriverId: 'driver-2');
 
     expect(dto.assignment?.driverId, 'driver-2');
+    expect(dto.assignment?.driverName, 'Second Driver');
     expect(dto.assignment?.vehicleId, 'vehicle-2');
     expect(dto.assignment?.vehicleRegistrationNumber, 'TRUCK-TWO');
     expect(dto.deliveryStatus, 'in_delivery');

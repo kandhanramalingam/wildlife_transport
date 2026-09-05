@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:geolocator/geolocator.dart';
+import '../screens/customer_directions_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -52,6 +52,8 @@ class ClientContactRow extends StatelessWidget {
     final longitude = double.tryParse(destinationLongitude.trim());
     if (latitude == null ||
         longitude == null ||
+        !latitude.isFinite ||
+        !longitude.isFinite ||
         latitude < -90 ||
         latitude > 90 ||
         longitude < -180 ||
@@ -63,59 +65,12 @@ class ClientContactRow extends StatelessWidget {
       return;
     }
 
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        if (context.mounted) {
-          _showNavigationError(
-            context,
-            'Turn on location services to open directions.',
-          );
-        }
-        return;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (context.mounted) {
-          _showNavigationError(
-            context,
-            'Location permission is required to open directions.',
-          );
-        }
-        return;
-      }
-
-      final current = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
-      final directionsUri = buildOpenStreetMapDirectionsUri(
-        originLatitude: current.latitude,
-        originLongitude: current.longitude,
-        destinationLatitude: latitude,
-        destinationLongitude: longitude,
-      );
-      final opened = await launchUrl(
-        directionsUri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!opened && context.mounted) {
-        _showNavigationError(context, 'Could not open OpenStreetMap.');
-      }
-    } catch (_) {
-      if (context.mounted) {
-        _showNavigationError(
-          context,
-          'Could not get your current location or open OpenStreetMap.',
-        );
-      }
-    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            CustomerDirectionsScreen(latitude: latitude, longitude: longitude),
+      ),
+    );
   }
 
   void _showNavigationError(BuildContext context, String message) {
@@ -172,7 +127,7 @@ class ClientContactRow extends StatelessWidget {
           IconButton.filled(
             onPressed: () => _openDirections(context),
             icon: const Icon(Icons.directions_outlined, size: 20),
-            tooltip: 'Directions to customer location',
+            tooltip: 'Open Google Maps directions',
             style: IconButton.styleFrom(
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
@@ -184,18 +139,4 @@ class ClientContactRow extends StatelessWidget {
       ],
     );
   }
-}
-
-Uri buildOpenStreetMapDirectionsUri({
-  required double originLatitude,
-  required double originLongitude,
-  required double destinationLatitude,
-  required double destinationLongitude,
-}) {
-  return Uri.https('www.openstreetmap.org', '/directions', {
-    'engine': 'fossgis_osrm_car',
-    'route':
-        '$originLatitude,$originLongitude;'
-        '$destinationLatitude,$destinationLongitude',
-  });
 }

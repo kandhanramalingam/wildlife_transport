@@ -40,10 +40,10 @@ dependencies:
   geolocator: ^13.0.0
   url_launcher: ^6.3.2
   font_awesome_flutter: ^11.0.0
-  flutter_map: ^8.3.2
-  latlong2: ^0.9.1
   shared_preferences: ^2.5.5
   permission_handler: ^12.0.3
+  google_maps_flutter: ^2.18.0
+  web: ^1.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -65,6 +65,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/branding/awa_transport_logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

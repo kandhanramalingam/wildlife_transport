@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:image_picker/image_picker.dart';
+import 'photo_meta.dart';
 
 class DeliveryChecklistItem {
   final String item;
@@ -13,9 +13,9 @@ class DeliveryChecklistItem {
 
 class StartDeliverySubmission {
   final int startOdometerReading;
-  final List<XFile> startVehiclePhotos;
-  final List<XFile> startAnimalPhotos;
-  final XFile onLoadAnimalsVideo;
+  final List<PhotoMeta> startVehiclePhotos;
+  final List<PhotoMeta> startAnimalPhotos;
+  final PhotoMeta onLoadAnimalsVideo;
   final String startLatitude;
   final String startLongitude;
   final List<DeliveryChecklistItem> vehicleChecklist;
@@ -38,6 +38,7 @@ class StartDeliverySubmission {
 }
 
 class StartDeliveryRequest {
+  final List<Map<String, dynamic>> startMediaMetadata;
   final int startOdometerReading;
   final List<String> startVehiclePhotos;
   final List<String> startAnimalPhotos;
@@ -50,6 +51,7 @@ class StartDeliveryRequest {
   final String otherSignature;
 
   const StartDeliveryRequest({
+    required this.startMediaMetadata,
     required this.startOdometerReading,
     required this.startVehiclePhotos,
     required this.startAnimalPhotos,
@@ -63,6 +65,7 @@ class StartDeliveryRequest {
   });
 
   Map<String, dynamic> toJson() => {
+    'startMediaMetadata': startMediaMetadata,
     'startOdometerReading': startOdometerReading,
     'startVehiclePhotos': startVehiclePhotos,
     'startAnimalPhotos': startAnimalPhotos,
@@ -79,8 +82,8 @@ class StartDeliveryRequest {
 }
 
 class CompleteOffloadingSubmission {
-  final List<XFile> endAnimalPhotos;
-  final XFile endAnimalVideos;
+  final List<PhotoMeta> endAnimalPhotos;
+  final PhotoMeta endAnimalVideos;
   final List<DeliveryChecklistItem> offLoadChecklist;
   final Uint8List clientSignature;
   final int endOdometerReading;
@@ -97,6 +100,7 @@ class CompleteOffloadingSubmission {
 }
 
 class CompleteOffloadingRequest {
+  final List<Map<String, dynamic>> endMediaMetadata;
   final List<String> endAnimalPhotos;
   final String endAnimalVideos;
   final List<DeliveryChecklistItem> offLoadChecklist;
@@ -105,6 +109,7 @@ class CompleteOffloadingRequest {
   final String buyerId;
 
   const CompleteOffloadingRequest({
+    required this.endMediaMetadata,
     required this.endAnimalPhotos,
     required this.endAnimalVideos,
     required this.offLoadChecklist,
@@ -114,6 +119,7 @@ class CompleteOffloadingRequest {
   });
 
   Map<String, dynamic> toJson() => {
+    'endMediaMetadata': endMediaMetadata,
     'endAnimalPhotos': endAnimalPhotos,
     'endAnimalVideos': endAnimalVideos,
     'offLoadChecklist': offLoadChecklist.map((item) => item.toJson()).toList(),

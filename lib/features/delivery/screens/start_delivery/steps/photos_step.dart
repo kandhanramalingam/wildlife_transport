@@ -9,9 +9,9 @@ import '../widgets/photo_viewer_screen.dart';
 
 class PhotosStepData {
   final int? odometerReading;
-  final List<XFile> vehiclePhotos;
-  final List<XFile> animalPhotos;
-  final XFile animalVideo;
+  final List<PhotoMeta> vehiclePhotos;
+  final List<PhotoMeta> animalPhotos;
+  final PhotoMeta animalVideo;
   final String latitude;
   final String longitude;
 
@@ -53,12 +53,13 @@ class _PhotosStepState extends State<PhotosStep>
   final List<PhotoMeta> _vehiclePhotos = [];
   final List<PhotoMeta> _animalPhotos = [];
   final _picker = ImagePicker();
-  XFile? _animalVideo;
+  PhotoMeta? _animalVideo;
   String? _latitude;
   String? _longitude;
   bool _isCapturing = false;
 
   bool get _canProceed =>
+      !_isCapturing &&
       (!widget.includeVehicleDetails ||
           (int.tryParse(_kmController.text.trim()) ?? -1) >= 0) &&
       (!widget.includeVehiclePhotos || _vehiclePhotos.isNotEmpty) &&
@@ -100,59 +101,63 @@ class _PhotosStepState extends State<PhotosStep>
     }
   }
 
-  Future<void> _capturePhoto(List<PhotoMeta> list) async {
+  Future<PhotoMeta?> _captureMedia({required bool video}) async {
+    if (_isCapturing) return null;
+    setState(() => _isCapturing = true);
     try {
-      final photo = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 80,
-      );
-      if (photo == null) return;
-
-      setState(() => _isCapturing = true);
+      final file = video
+          ? await _picker.pickVideo(
+              source: ImageSource.camera,
+              maxDuration: const Duration(seconds: 30),
+            )
+          : await _picker.pickImage(
+              source: ImageSource.camera,
+              imageQuality: 80,
+            );
+      if (file == null) return null;
+      final capturedAt = DateTime.now();
       final location = await _fetchLocation();
-
-      if (mounted) {
-        setState(() {
-          list.add(
-            PhotoMeta(
-              photo: photo,
-              dateTime: DateTime.now(),
-              location: location.display,
+      if (!mounted) return null;
+      if (location.latitude == null || location.longitude == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${location.display}. Enable location access and capture again to save this media with its location.',
             ),
-          );
-          if (location.latitude != null && location.longitude != null) {
-            _latitude = location.latitude;
-            _longitude = location.longitude;
-          }
-          _isCapturing = false;
-        });
+          ),
+        );
+        return null;
       }
+      _latitude = location.latitude;
+      _longitude = location.longitude;
+      return PhotoMeta(
+        photo: file,
+        dateTime: capturedAt,
+        latitude: double.parse(location.latitude!),
+        longitude: double.parse(location.longitude!),
+      );
     } catch (_) {
       if (mounted) {
-        setState(() => _isCapturing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to capture photo')),
+          const SnackBar(
+            content: Text('Failed to capture media. Please try again.'),
+          ),
         );
       }
+      return null;
+    } finally {
+      if (mounted) setState(() => _isCapturing = false);
     }
   }
 
+  Future<void> _capturePhoto(List<PhotoMeta> list) async {
+    final media = await _captureMedia(video: false);
+    if (media != null && mounted) setState(() => list.add(media));
+  }
+
   Future<void> _captureVideo() async {
-    try {
-      final video = await _picker.pickVideo(
-        source: ImageSource.camera,
-        maxDuration: const Duration(seconds: 30),
-      );
-      if (video != null && mounted) {
-        setState(() => _animalVideo = video);
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to capture video clip')),
-        );
-      }
-    }
+    final media = await _captureMedia(video: true);
+    if (media != null && mounted) setState(() => _animalVideo = media);
   }
 
   @override
@@ -326,13 +331,13 @@ class _PhotosStepState extends State<PhotosStep>
               ),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
               child: Text(
-                _shortDateTime(meta.dateTime),
+                '${_shortDateTime(meta.dateTime)}\n${meta.location}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 7,
                   height: 1.3,
                 ),
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -417,8 +422,8 @@ class _PhotosStepState extends State<PhotosStep>
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              video.name,
-              maxLines: 1,
+              '${video.photo.name}\n${_shortDateTime(video.dateTime)}\n${video.location}',
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12),
             ),
@@ -455,12 +460,8 @@ class _PhotosStepState extends State<PhotosStep>
                     odometerReading: widget.includeVehicleDetails
                         ? int.parse(_kmController.text.trim())
                         : null,
-                    vehiclePhotos: _vehiclePhotos
-                        .map((meta) => meta.photo)
-                        .toList(growable: false),
-                    animalPhotos: _animalPhotos
-                        .map((meta) => meta.photo)
-                        .toList(growable: false),
+                    vehiclePhotos: List.unmodifiable(_vehiclePhotos),
+                    animalPhotos: List.unmodifiable(_animalPhotos),
                     animalVideo: _animalVideo!,
                     latitude: _latitude ?? '',
                     longitude: _longitude ?? '',

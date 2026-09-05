@@ -58,23 +58,23 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       final vehiclePhotos = await Future.wait(
         submission.startVehiclePhotos.map(
           (photo) async => _remoteDataSource.uploadImage(
-            await photo.readAsBytes(),
-            photo.name,
+            await photo.photo.readAsBytes(),
+            photo.photo.name,
           ),
         ),
       );
       final animalPhotos = await Future.wait(
         submission.startAnimalPhotos.map(
           (photo) async => _remoteDataSource.uploadImage(
-            await photo.readAsBytes(),
-            photo.name,
+            await photo.photo.readAsBytes(),
+            photo.photo.name,
           ),
         ),
       );
       final uploaded = await Future.wait([
         _remoteDataSource.uploadVideo(
-          await submission.onLoadAnimalsVideo.readAsBytes(),
-          submission.onLoadAnimalsVideo.name,
+          await submission.onLoadAnimalsVideo.photo.readAsBytes(),
+          submission.onLoadAnimalsVideo.photo.name,
         ),
         _remoteDataSource.uploadImage(
           submission.managerSignature,
@@ -87,6 +87,22 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       ]);
 
       final request = StartDeliveryRequest(
+        startMediaMetadata: [
+          for (var i = 0; i < vehiclePhotos.length; i++)
+            submission.startVehiclePhotos[i].uploadedMetadata(
+              vehiclePhotos[i],
+              'vehicle_photo',
+            ),
+          for (var i = 0; i < animalPhotos.length; i++)
+            submission.startAnimalPhotos[i].uploadedMetadata(
+              animalPhotos[i],
+              'animal_photo',
+            ),
+          submission.onLoadAnimalsVideo.uploadedMetadata(
+            uploaded[0],
+            'animal_video',
+          ),
+        ],
         startOdometerReading: submission.startOdometerReading,
         startVehiclePhotos: vehiclePhotos,
         startAnimalPhotos: animalPhotos,
@@ -149,15 +165,15 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       final animalPhotos = await Future.wait(
         submission.endAnimalPhotos.map(
           (photo) async => _remoteDataSource.uploadImage(
-            await photo.readAsBytes(),
-            photo.name,
+            await photo.photo.readAsBytes(),
+            photo.photo.name,
           ),
         ),
       );
       final uploaded = await Future.wait([
         _remoteDataSource.uploadVideo(
-          await submission.endAnimalVideos.readAsBytes(),
-          submission.endAnimalVideos.name,
+          await submission.endAnimalVideos.photo.readAsBytes(),
+          submission.endAnimalVideos.photo.name,
         ),
         _remoteDataSource.uploadImage(
           submission.clientSignature,
@@ -165,6 +181,17 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         ),
       ]);
       final request = CompleteOffloadingRequest(
+        endMediaMetadata: [
+          for (var i = 0; i < animalPhotos.length; i++)
+            submission.endAnimalPhotos[i].uploadedMetadata(
+              animalPhotos[i],
+              'animal_photo',
+            ),
+          submission.endAnimalVideos.uploadedMetadata(
+            uploaded[0],
+            'animal_video',
+          ),
+        ],
         endAnimalPhotos: animalPhotos,
         endAnimalVideos: uploaded[0],
         offLoadChecklist: submission.offLoadChecklist,

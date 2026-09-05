@@ -1,4 +1,3 @@
 {
-  "API_BASE_URL": "http://transport.wildlifeauctions.co.za:8081",
-  "OSM_TILE_URL": "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+  "API_BASE_URL": "http://transport.wildlifeauctions.co.za:8081"
 }

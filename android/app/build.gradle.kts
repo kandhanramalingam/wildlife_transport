@@ -1,8 +1,16 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val dartDefines = (project.findProperty("dart-defines") as? String)
+    ?.split(",")?.mapNotNull {
+        val entry = String(Base64.getDecoder().decode(it)).split("=", limit = 2)
+        if (entry.size == 2) entry[0] to entry[1] else null
+    }?.toMap() ?: emptyMap()
 
 android {
     namespace = "com.example.wildlife_transport"
@@ -19,7 +27,8 @@ android {
         applicationId = "com.example.wildlife_transport"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = maxOf(flutter.minSdkVersion, 24)
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = dartDefines["GOOGLE_MAPS_API_KEY"] ?: ""
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

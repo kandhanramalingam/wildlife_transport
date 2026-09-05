@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -53,11 +51,13 @@ class GeolocatorTripPositionSource implements TripPositionSource {
       );
     }
     if (permission == LocationPermission.deniedForever) {
-      throw const CurrentLocationException(
-        'Enable location permission in device settings to track deliveries.',
+      throw CurrentLocationException(
+        kIsWeb
+            ? 'Location permission is blocked. Allow location in your browser’s site settings, then retry.'
+            : 'Enable location permission in device settings to track deliveries.',
       );
     }
-    if (Platform.isAndroid) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       final notificationPermission = await Permission.notification.status;
       if (notificationPermission.isDenied) {
         await Permission.notification.request();
@@ -85,6 +85,9 @@ class GeolocatorTripPositionSource implements TripPositionSource {
   }
 
   LocationSettings _settings() {
+    if (kIsWeb) {
+      return WebSettings(accuracy: LocationAccuracy.high, distanceFilter: 100);
+    }
     if (defaultTargetPlatform == TargetPlatform.android) {
       return AndroidSettings(
         accuracy: LocationAccuracy.high,
