@@ -272,21 +272,21 @@ class CustomerNavigationController extends ChangeNotifier {
       if (error.type == DioExceptionType.connectionTimeout ||
           error.type == DioExceptionType.sendTimeout ||
           error.type == DioExceptionType.receiveTimeout) {
-        return 'Your location was found, but the route service took too long to respond. Please retry.';
+        return 'In-app directions took too long to respond. Retry, or open Google Maps to continue.';
       }
       if (error.type == DioExceptionType.connectionError ||
           error.response == null) {
-        return 'Your location was found, but the route server could not be reached. Check your connection or contact your administrator.';
+        return 'In-app directions could not connect. Check your internet connection and retry, or open Google Maps to continue.';
       }
       final status = error.response?.statusCode;
       if (status == 503) {
-        return 'Route service is not configured. Ask your administrator to enable Google Routes.';
+        return 'In-app directions are temporarily unavailable. You can still open Google Maps to navigate to this customer.';
       }
       if (status == 404) {
         final data = error.response?.data;
         final message = data is Map ? data['message']?.toString() ?? '' : '';
         if (message.contains('Cannot POST')) {
-          return 'The server needs the latest navigation update. Contact your administrator, then retry.';
+          return 'In-app directions are temporarily unavailable. You can still open Google Maps to navigate to this customer.';
         }
         return 'No driving route was found to this customer pin. Check the saved location and retry.';
       }
@@ -294,15 +294,15 @@ class CustomerNavigationController extends ChangeNotifier {
         return 'Your session expired. Sign in again to load directions.';
       }
       if (status == 502) {
-        return 'Google could not calculate the route. Check the Routes API key and quota, then retry.';
+        return 'Google Maps could not calculate the in-app route. Retry, or open Google Maps to continue.';
       }
     }
     if (error is FormatException || error is TypeError) {
-      return 'The route service returned an invalid route. Contact your administrator to check the server update.';
+      return 'In-app directions returned an invalid route. Retry, or open Google Maps to continue.';
     }
     return locating
         ? 'Could not obtain your current location. Allow browser and device location access, then retry.'
-        : 'Your location was found, but the driving route could not be loaded. Please retry or contact your administrator.';
+        : 'The driving route could not be loaded. Retry, or open Google Maps to continue.';
   }
 
   static double _distance(LatLng a, LatLng b) => Geolocator.distanceBetween(

@@ -10,12 +10,14 @@ flutter run --dart-define-from-file=config/dev.json
 flutter run -d chrome \
   --dart-define-from-file=config/dev.json \
   --dart-define-from-file=config/maps.local.json
+  
 
 
 Build a development APK with the same configuration:
 
 ```sh
-flutter build apk --debug --dart-define-from-file=config/dev.json
+flutter build apk --debug --dart-define-from-file=config/dev.json \
+--dart-define-from-file=config/maps.local.json
 ```
 
 The configured base URL is `http://transport.wildlifeauctions.co.za:8081`.

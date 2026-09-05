@@ -75,14 +75,57 @@ void main() {
       );
       await controller.refresh();
       expect(controller.position, const LatLng(0, 0));
-      expect(
-        controller.error,
-        contains('server needs the latest navigation update'),
-      );
+      expect(controller.error, contains('open Google Maps'));
       expect(controller.navigating, isFalse);
       controller.dispose();
     },
   );
+
+  test('Google Maps fallback targets the saved customer pin', () {
+    final uri = googleMapsDirectionsUri(const LatLng(-25.7461, 28.1881));
+
+    expect(uri.scheme, 'https');
+    expect(uri.host, 'www.google.com');
+    expect(uri.path, '/maps/dir/');
+    expect(uri.queryParameters['api'], '1');
+    expect(uri.queryParameters['destination'], '-25.7461,28.1881');
+    expect(uri.queryParameters['travelmode'], 'driving');
+    expect(uri.queryParameters['dir_action'], 'navigate');
+  });
+
+  testWidgets('offers Google Maps when the server route is unavailable', (
+    tester,
+  ) async {
+    final request = RequestOptions(path: 'driver-auth/directions');
+    final controller = CustomerNavigationController(
+      destination: destination,
+      now: () => start,
+      currentPosition: () async => fix(0, start),
+      loadRoute: (_, _) async => throw DioException(
+        requestOptions: request,
+        type: DioExceptionType.badResponse,
+        response: Response(requestOptions: request, statusCode: 503),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomerDirectionsScreen(
+          latitude: 0,
+          longitude: .01,
+          controller: controller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('temporarily unavailable'), findsOneWidget);
+    expect(find.text('Open in Google Maps'), findsOneWidget);
+    expect(find.textContaining('administrator'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    controller.dispose();
+  });
 
   testWidgets('shows kilometres, ETA and Start/Stop controls inside the app', (
     tester,

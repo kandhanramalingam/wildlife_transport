@@ -157,7 +157,8 @@ class TripLocationTracker extends ChangeNotifier {
 
   Future<void> _ensureQueue() async {
     if (_queue != null) return;
-    _queue = await _queueStore.load();
+    // Storage may return an immutable list, including an empty const list.
+    _queue = List<DriverLocationReading>.of(await _queueStore.load());
     pendingCount = _queue!.length;
     notifyListeners();
   }

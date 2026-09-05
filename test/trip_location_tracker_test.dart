@@ -13,7 +13,7 @@ import 'package:wildlife_transport/features/delivery/models/start_delivery_submi
 
 void main() {
   test(
-    'queues an offline reading and flushes it when retry succeeds',
+    'queues an offline reading from immutable storage and flushes on retry',
     () async {
       final repository = _LocationRepository()..offline = true;
       final store = _MemoryQueueStore();
@@ -43,6 +43,7 @@ void main() {
       expect(repository.uploaded, hasLength(1));
       expect(repository.uploaded.single.deliveryId, 'delivery-1');
       expect(tracker.pendingCount, 0);
+      expect(tracker.warningMessage, isNull);
       expect(store.readings, isEmpty);
       await tracker.stop();
       await source.close();
@@ -101,7 +102,7 @@ class _MemoryQueueStore implements LocationQueueStore {
   List<DriverLocationReading> readings = [];
 
   @override
-  Future<List<DriverLocationReading>> load() async => List.of(readings);
+  Future<List<DriverLocationReading>> load() async => List.unmodifiable(readings);
 
   @override
   Future<void> replace(List<DriverLocationReading> readings) async {

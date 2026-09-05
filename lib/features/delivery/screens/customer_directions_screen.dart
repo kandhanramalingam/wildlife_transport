@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/maps/delivery_google_map.dart';
 import '../models/driving_route.dart';
@@ -123,6 +124,26 @@ class _CustomerDirectionsScreenState extends State<CustomerDirectionsScreen> {
   String _distance(double metres) => metres < 1000
       ? '${metres.round()} m'
       : '${(metres / 1000).toStringAsFixed(1)} km';
+
+  Future<void> _openGoogleMaps() async {
+    try {
+      final opened = await launchUrl(
+        googleMapsDirectionsUri(_destination),
+        mode: LaunchMode.externalApplication,
+      );
+      if (opened || !mounted) return;
+    } catch (_) {
+      if (!mounted) return;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open Google Maps on this device.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
 
   void _showSteps() {
     final route = _navigation.route;
@@ -283,6 +304,14 @@ class _CustomerDirectionsScreenState extends State<CustomerDirectionsScreen> {
                       ),
                     ),
                   const SizedBox(height: 8),
+                  if (route == null && nav.error != null) ...[
+                    OutlinedButton.icon(
+                      onPressed: _openGoogleMaps,
+                      icon: const Icon(Icons.map_outlined),
+                      label: const Text('Open in Google Maps'),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   if (nav.arrived)
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context),
@@ -347,3 +376,11 @@ class _CustomerDirectionsScreenState extends State<CustomerDirectionsScreen> {
     );
   }
 }
+
+Uri googleMapsDirectionsUri(LatLng destination) =>
+    Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': '${destination.latitude},${destination.longitude}',
+      'travelmode': 'driving',
+      'dir_action': 'navigate',
+    });

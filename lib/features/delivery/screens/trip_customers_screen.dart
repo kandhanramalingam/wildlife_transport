@@ -29,6 +29,13 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
   String? _startingOffloadingDeliveryId;
   String? _savingLocationDeliveryId;
 
+  String? get _nextCustomerDeliveryId {
+    for (final customer in _customers) {
+      if (!customer.deliveryCompleted) return customer.deliveryId;
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +63,15 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
 
   Future<void> _startOffLoading(DeliveryLot customer) async {
     if (customer.deliveryCompleted) return;
+    if (_nextCustomerDeliveryId != customer.deliveryId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Complete the previous customer delivery first.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     final activeDeliveryId = _activeCustomerDeliveryId;
     if (activeDeliveryId != null && activeDeliveryId != customer.deliveryId) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -307,13 +323,18 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
       return const Center(child: Text('No customer delivery found'));
     }
 
+    final nextDeliveryId = _nextCustomerDeliveryId;
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 12),
       itemCount: _customers.length,
       itemBuilder: (context, index) {
         final customer = _customers[index];
         final isActive = _activeCustomerDeliveryId == customer.deliveryId;
-        final isLocked = _activeCustomerDeliveryId != null && !isActive;
+        final isLocked =
+            !customer.deliveryCompleted &&
+            (customer.deliveryId != nextDeliveryId ||
+                (_activeCustomerDeliveryId != null && !isActive));
         final isStarting = _startingOffloadingDeliveryId == customer.deliveryId;
         final isSavingLocation =
             _savingLocationDeliveryId == customer.deliveryId;
@@ -459,7 +480,7 @@ class _CustomerCard extends StatelessWidget {
                 fontSize: 14,
                 destinationLatitude: customer.latitude,
                 destinationLongitude: customer.longitude,
-                showNavigation: true,
+                showNavigation: !isLocked,
               ),
             ],
             if (customer.latitude.isNotEmpty ||
@@ -528,7 +549,7 @@ class _CustomerCard extends StatelessWidget {
                     isStarting
                         ? 'Starting Off-loading...'
                         : isLocked
-                        ? 'Finish Current Off-loading First'
+                        ? 'Complete Previous Delivery First'
                         : isActive
                         ? 'Begin Offloading'
                         : 'At delivery point',
