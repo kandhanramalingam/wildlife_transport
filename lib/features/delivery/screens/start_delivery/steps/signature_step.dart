@@ -4,7 +4,11 @@ import '../../../../../core/theme/app_theme.dart';
 import '../widgets/signature_pad_modal.dart';
 
 class SignatureStep extends StatefulWidget {
-  final Future<void> Function(Uint8List manager, Uint8List? other) onStartTrip;
+  final Future<void> Function(
+    Uint8List manager,
+    Uint8List? other, {
+    String? clientComment,
+  }) onStartTrip;
   final String buttonLabel;
   final String description;
   final String incompleteMessage;
@@ -30,6 +34,7 @@ class _SignatureStepState extends State<SignatureStep>
     with AutomaticKeepAliveClientMixin<SignatureStep> {
   Uint8List? _managerSignature;
   Uint8List? _officerSignature;
+  final _commentController = TextEditingController();
   bool _isSubmitting = false;
 
   bool get _canStart =>
@@ -38,6 +43,12 @@ class _SignatureStepState extends State<SignatureStep>
 
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
 
   Future<void> _openSignaturePad(
     String name,
@@ -57,7 +68,13 @@ class _SignatureStepState extends State<SignatureStep>
   Future<void> _startTrip() async {
     if (_isSubmitting || !_canStart) return;
     setState(() => _isSubmitting = true);
-    await widget.onStartTrip(_managerSignature!, _officerSignature);
+    await widget.onStartTrip(
+      _managerSignature!,
+      _officerSignature,
+      clientComment: widget.offLoadingSignatures
+          ? _commentController.text.trim()
+          : null,
+    );
     if (mounted) setState(() => _isSubmitting = false);
   }
 
@@ -99,12 +116,67 @@ class _SignatureStepState extends State<SignatureStep>
             _SignatureCard(
               title: widget.offLoadingSignatures ? 'Driver' : 'Officer',
               subtitle: widget.offLoadingSignatures
-                  ? 'Driver completing the delivery'
-                  : 'Supervising Officer',
+                ? 'Driver completing the delivery'
+                : 'Supervising Officer',
               signature: _officerSignature,
               onTap: () => _openSignaturePad(
                 widget.offLoadingSignatures ? 'Driver' : 'Officer',
                 (s) => _officerSignature = s,
+              ),
+            ),
+          ],
+          if (widget.offLoadingSignatures) ...[
+            const SizedBox(height: 16),
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.comment_outlined,
+                          size: 18,
+                          color: AppTheme.primary,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Client Comment / Notes',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _commentController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText:
+                            'Enter any remarks or notes from the client (optional)...',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade400,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                      ),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

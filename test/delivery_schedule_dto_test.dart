@@ -351,4 +351,107 @@ void main() {
       expect(dto.deliveryStatus, 'pending');
     },
   );
+
+  test('parses lotNumbers, multiPickupPointJob, pickupStops, partialDelivery, and permits', () {
+    final dto = DeliveryScheduleDto.fromJson({
+      '_id': 'delivery-multi',
+      'buyerId': 'buyer-1',
+      'buyerName': 'John Doe',
+      'address': 'Farm 1',
+      'auctionId': 'auc-1',
+      'scheduleDate': '2026-09-15T10:00:00.000Z',
+      'deliveryStatus': 'in_delivery',
+      'paymentStatus': true,
+      'multiPickupPointJob': true,
+      'multiplePickupPoint': true,
+      'pickupNotice': 'Multi pickup point job — collect from 2 stops',
+      'pickupStops': [
+        {
+          'order': 2,
+          'address': 'Boma B',
+          'lotNumbers': ['3', '4'],
+        },
+        {
+          'order': 1,
+          'address': 'Boma A',
+          'lotNumbers': ['1', '2'],
+        },
+      ],
+      'vehicleLotTotal': 5,
+      'totalLots': 5,
+      'assignedLots': 4,
+      'deliveredLots': 1,
+      'balanceLots': 4,
+      'balanceLotNumbers': ['2', '3', '4', '5'],
+      'partialDelivery': true,
+      'permits': [
+        'uploads/permits/permit-1.pdf',
+        'uploads/permits/permit-2.pdf',
+      ],
+      'assignments': [
+        {
+          'vehicleId': 'veh-1',
+          'driverId': 'drv-1',
+          'status': 'in_delivery',
+          'lotNumbers': ['1', '2', '3', '4'],
+          'loadedLotNumbers': ['1', '2'],
+        },
+      ],
+    });
+
+    expect(dto.multiPickupPointJob, isTrue);
+    expect(dto.multiplePickupPoint, isTrue);
+    expect(dto.pickupNotice, 'Multi pickup point job — collect from 2 stops');
+    expect(dto.pickupStops.length, 2);
+    expect(dto.pickupStops[0].order, 1);
+    expect(dto.pickupStops[0].address, 'Boma A');
+    expect(dto.pickupStops[0].lotNumbers, ['1', '2']);
+    expect(dto.pickupStops[1].order, 2);
+    expect(dto.pickupStops[1].address, 'Boma B');
+    expect(dto.pickupStops[1].lotNumbers, ['3', '4']);
+
+    expect(dto.totalLots, 5);
+    expect(dto.vehicleLotTotal, 5);
+    expect(dto.assignedLots, 4);
+    expect(dto.deliveredLots, 1);
+    expect(dto.balanceLots, 4);
+    expect(dto.balanceLotNumbers, ['2', '3', '4', '5']);
+    expect(dto.partialDelivery, isTrue);
+
+    expect(dto.permits, [
+      'uploads/permits/permit-1.pdf',
+      'uploads/permits/permit-2.pdf',
+    ]);
+
+    expect(dto.assignments.length, 1);
+    expect(dto.assignments.first.lotNumbers, ['1', '2', '3', '4']);
+    expect(dto.assignments.first.loadedLotNumbers, ['1', '2']);
+  });
+
+  test('legacy records default missing fields to 0, empty list, and false', () {
+    final dto = DeliveryScheduleDto.fromJson({
+      '_id': 'legacy-deliv',
+      'buyerId': 'buyer-1',
+      'buyerName': 'Buyer',
+      'address': 'Address',
+      'auctionId': 'auc-1',
+      'scheduleDate': '2026-09-15T10:00:00.000Z',
+      'deliveryStatus': 'pending',
+      'paymentStatus': false,
+    });
+
+    expect(dto.multiPickupPointJob, isFalse);
+    expect(dto.multiplePickupPoint, isFalse);
+    expect(dto.pickupNotice, isNull);
+    expect(dto.pickupStops, isEmpty);
+    expect(dto.vehicleLotTotal, 0);
+    expect(dto.totalLots, 0);
+    expect(dto.assignedLots, 0);
+    expect(dto.deliveredLots, 0);
+    expect(dto.balanceLots, 0);
+    expect(dto.balanceLotNumbers, isEmpty);
+    expect(dto.partialDelivery, isFalse);
+    expect(dto.permits, isEmpty);
+    expect(dto.assignments, isEmpty);
+  });
 }

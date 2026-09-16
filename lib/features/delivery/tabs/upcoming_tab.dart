@@ -94,11 +94,23 @@ class _UpcomingTabState extends State<UpcomingTab> {
     final loadingOrder = delivery.nextLoadingOrder;
     try {
       if (lot.status != DeliveryStatus.loading) {
-        await _repository.startLoading(
+        final updated = await _repository.startLoading(
           lot.deliveryId,
           vehicleId: lot.assignment?.vehicleId ?? delivery.assignedVehicleId,
         );
-        _controller.markLotLoadingStarted(delivery.id, lot.deliveryId);
+        if (updated != null) {
+          _controller.updateDeliveryStatusAndPartial(
+            deliveryId: delivery.id,
+            status: updated.status,
+            partialDelivery: updated.partialDelivery,
+            balanceLots: updated.balanceLots,
+            deliveredLots: updated.deliveredLots,
+            totalLots: updated.totalLots,
+            balanceLotNumbers: updated.balanceLotNumbers,
+          );
+        } else {
+          _controller.markLotLoadingStarted(delivery.id, lot.deliveryId);
+        }
       }
     } on Failure catch (failure) {
       _showError(failure.message);
@@ -142,10 +154,23 @@ class _UpcomingTabState extends State<UpcomingTab> {
     await showLocationTrackingDisclosure(context);
     if (!mounted) return;
     try {
-      await _repository.startTrip(
+      final updated = await _repository.startTrip(
         delivery.id,
         vehicleId: delivery.assignedVehicleId,
       );
+      if (updated != null) {
+        _controller.updateDeliveryStatusAndPartial(
+          deliveryId: delivery.id,
+          status: updated.status,
+          partialDelivery: updated.partialDelivery,
+          balanceLots: updated.balanceLots,
+          deliveredLots: updated.deliveredLots,
+          totalLots: updated.totalLots,
+          balanceLotNumbers: updated.balanceLotNumbers,
+        );
+      } else {
+        _controller.markTripStarted(delivery.id);
+      }
     } on Failure catch (failure) {
       _showError(failure.message);
       return;
@@ -155,7 +180,6 @@ class _UpcomingTabState extends State<UpcomingTab> {
     }
     if (!mounted) return;
 
-    _controller.markTripStarted(delivery.id);
     unawaited(AppDependencies.tripLocationTracker.start(delivery.id));
     await _openTripCustomers(
       delivery.copyWith(status: DeliveryStatus.inProgress),

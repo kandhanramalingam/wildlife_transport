@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/config/environment.dart';
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../delivery/screens/trip_customers_screen.dart';
 import '../models/driver_profile.dart';
 import '../presentation/profile_controller.dart';
 
@@ -99,6 +102,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _formatDate(profile.licenceExpiry),
               ),
             ]),
+            const SizedBox(height: 16),
+            _buildDocumentsCard(profile),
             const SizedBox(height: 16),
             _buildVehicleCard(profile.vehicle),
             const SizedBox(height: 16),
@@ -343,6 +348,134 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildDocumentsCard(DriverProfile profile) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Identification & Documents',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _documentRow(
+              icon: Icons.badge_outlined,
+              label: 'ID Document',
+              identifier: profile.idNumber ?? profile.passportNumber,
+              path: profile.idPath,
+            ),
+            const Divider(height: 20),
+            _documentRow(
+              icon: Icons.credit_card_outlined,
+              label: "Driver's Licence",
+              identifier: profile.licenceNumber,
+              path: profile.licencePath,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _documentRow({
+    required IconData icon,
+    required String label,
+    String? identifier,
+    String? path,
+  }) {
+    final hasDocument = path != null && path.trim().isNotEmpty;
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppTheme.primary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                identifier != null && identifier.trim().isNotEmpty
+                    ? identifier
+                    : (hasDocument ? 'Document available' : 'Not uploaded'),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: hasDocument
+                      ? AppTheme.textPrimary
+                      : AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (hasDocument)
+          ElevatedButton.icon(
+            onPressed: () => _openDocument(path),
+            icon: const Icon(Icons.visibility_outlined, size: 16),
+            label: const Text('View', style: TextStyle(fontSize: 12)),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: const Size(0, 32),
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'Missing',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _openDocument(String path) async {
+    try {
+      final uri = resolveInvoiceUri(Environment.apiBaseUrl, path);
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open document.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open document.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildLogoutButton() {

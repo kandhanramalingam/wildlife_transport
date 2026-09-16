@@ -7,21 +7,27 @@ import '../models/start_delivery_submission.dart';
 abstract interface class DeliveryRepository {
   Future<List<DeliveryModel>> getTodaySchedule({CancelToken? cancelToken});
   Future<List<DeliveryModel>> getUpcomingSchedule({CancelToken? cancelToken});
-  Future<void> updateStatus(
+  Future<DeliveryModel?> updateStatus(
     String deliveryId,
     DeliveryStatusUpdate status, {
     String? vehicleId,
   });
-  Future<void> startLoading(String deliveryId, {String? vehicleId});
-  Future<void> completeLoading(
+  Future<DeliveryModel?> startLoading(String deliveryId, {String? vehicleId});
+  Future<DeliveryModel?> completeLoading(
     String deliveryId,
     StartDeliverySubmission submission, {
     String? vehicleId,
   });
-  Future<void> startTrip(String deliveryId, {String? vehicleId});
-  Future<void> atDeliveryLocation(String deliveryId, {String? vehicleId});
-  Future<void> startOffloading(String deliveryId, {String? vehicleId});
-  Future<void> completeOffloading(
+  Future<DeliveryModel?> startTrip(String deliveryId, {String? vehicleId});
+  Future<DeliveryModel?> atDeliveryLocation(
+    String deliveryId, {
+    String? vehicleId,
+  });
+  Future<DeliveryModel?> startOffloading(
+    String deliveryId, {
+    String? vehicleId,
+  });
+  Future<DeliveryModel?> completeOffloading(
     String deliveryId,
     CompleteOffloadingSubmission submission, {
     String? vehicleId,

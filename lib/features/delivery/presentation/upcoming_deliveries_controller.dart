@@ -137,6 +137,42 @@ class UpcomingDeliveriesController extends ChangeNotifier {
     updateLots(deliveryId, lots);
   }
 
+  void applyDeliveryUpdate(DeliveryModel updated) {
+    final index = deliveries.indexWhere((item) => item.id == updated.id);
+    if (index == -1) return;
+
+    final list = List<DeliveryModel>.of(deliveries);
+    list[index] = updated;
+    deliveries = List.unmodifiable(list);
+    notifyListeners();
+  }
+
+  void updateDeliveryStatusAndPartial({
+    required String deliveryId,
+    required DeliveryStatus status,
+    bool? partialDelivery,
+    int? balanceLots,
+    int? deliveredLots,
+    int? totalLots,
+    List<String>? balanceLotNumbers,
+  }) {
+    final index = deliveries.indexWhere((item) => item.id == deliveryId);
+    if (index == -1) return;
+
+    final list = List<DeliveryModel>.of(deliveries);
+    final delivery = list[index];
+    list[index] = delivery.copyWith(
+      status: status,
+      partialDelivery: partialDelivery,
+      balanceLots: balanceLots,
+      deliveredLots: deliveredLots,
+      totalLots: totalLots,
+      balanceLotNumbers: balanceLotNumbers,
+    );
+    deliveries = List.unmodifiable(list);
+    notifyListeners();
+  }
+
   void _updateStatus(String deliveryId, DeliveryStatus status) {
     final index = deliveries.indexWhere(
       (delivery) => delivery.id == deliveryId,

@@ -5,10 +5,19 @@ import 'photo_meta.dart';
 class DeliveryChecklistItem {
   final String item;
   final bool checked;
+  final String? reason;
 
-  const DeliveryChecklistItem({required this.item, required this.checked});
+  const DeliveryChecklistItem({
+    required this.item,
+    required this.checked,
+    this.reason,
+  });
 
-  Map<String, dynamic> toJson() => {'item': item, 'checked': checked};
+  Map<String, dynamic> toJson() => {
+    'item': item,
+    'checked': checked,
+    if (reason != null && reason!.trim().isNotEmpty) 'reason': reason!.trim(),
+  };
 }
 
 class StartDeliverySubmission {
@@ -48,7 +57,9 @@ class StartDeliveryRequest {
   final List<DeliveryChecklistItem> vehicleChecklist;
   final List<DeliveryChecklistItem> gameLoadingChecklist;
   final String managerSignature;
+  final Map<String, dynamic>? managerSignatureMetadata;
   final String otherSignature;
+  final Map<String, dynamic>? otherSignatureMetadata;
 
   const StartDeliveryRequest({
     required this.startMediaMetadata,
@@ -61,7 +72,9 @@ class StartDeliveryRequest {
     required this.vehicleChecklist,
     required this.gameLoadingChecklist,
     required this.managerSignature,
+    this.managerSignatureMetadata,
     required this.otherSignature,
+    this.otherSignatureMetadata,
   });
 
   Map<String, dynamic> toJson() => {
@@ -77,7 +90,11 @@ class StartDeliveryRequest {
         .map((item) => item.toJson())
         .toList(),
     'managerSignature': managerSignature,
+    if (managerSignatureMetadata != null)
+      'managerSignatureMetadata': managerSignatureMetadata,
     'otherSignature': otherSignature,
+    if (otherSignatureMetadata != null)
+      'otherSignatureMetadata': otherSignatureMetadata,
   };
 }
 
@@ -88,6 +105,7 @@ class CompleteOffloadingSubmission {
   final Uint8List clientSignature;
   final int endOdometerReading;
   final String buyerId;
+  final String? clientComment;
 
   const CompleteOffloadingSubmission({
     required this.endAnimalPhotos,
@@ -96,6 +114,7 @@ class CompleteOffloadingSubmission {
     required this.clientSignature,
     required this.endOdometerReading,
     required this.buyerId,
+    this.clientComment,
   });
 }
 
@@ -107,6 +126,7 @@ class CompleteOffloadingRequest {
   final String clientSignature;
   final int endOdometerReading;
   final String buyerId;
+  final String? clientComment;
 
   const CompleteOffloadingRequest({
     required this.endMediaMetadata,
@@ -116,6 +136,7 @@ class CompleteOffloadingRequest {
     required this.clientSignature,
     required this.endOdometerReading,
     required this.buyerId,
+    this.clientComment,
   });
 
   Map<String, dynamic> toJson() => {
@@ -126,5 +147,7 @@ class CompleteOffloadingRequest {
     'clientSignature': clientSignature,
     'endOdometerReading': endOdometerReading,
     'buyerId': buyerId,
+    if (clientComment != null && clientComment!.trim().isNotEmpty)
+      'comment': clientComment!.trim(),
   };
 }

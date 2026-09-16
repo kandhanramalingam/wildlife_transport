@@ -27,11 +27,11 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       );
 
   @override
-  Future<void> updateStatus(
+  Future<DeliveryModel?> updateStatus(
     String deliveryId,
     DeliveryStatusUpdate status, {
     String? vehicleId,
-  }) => _runAction(
+  }) => _runModelAction(
     () => _remoteDataSource.updateStatus(
       deliveryId,
       status,
@@ -41,7 +41,7 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
   );
 
   @override
-  Future<void> startLoading(String deliveryId, {String? vehicleId}) =>
+  Future<DeliveryModel?> startLoading(String deliveryId, {String? vehicleId}) =>
       updateStatus(
         deliveryId,
         DeliveryStatusUpdate.loadingInProgress,
@@ -49,7 +49,7 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       );
 
   @override
-  Future<void> completeLoading(
+  Future<DeliveryModel?> completeLoading(
     String deliveryId,
     StartDeliverySubmission submission, {
     String? vehicleId,
@@ -86,6 +86,10 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         ),
       ]);
 
+      final nowUtcIso = DateTime.now().toUtc().toIso8601String();
+      final lat = double.tryParse(submission.startLatitude) ?? 0.0;
+      final lng = double.tryParse(submission.startLongitude) ?? 0.0;
+
       final request = StartDeliveryRequest(
         startMediaMetadata: [
           for (var i = 0; i < vehiclePhotos.length; i++)
@@ -112,14 +116,28 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         vehicleChecklist: submission.vehicleChecklist,
         gameLoadingChecklist: submission.gameLoadingChecklist,
         managerSignature: uploaded[1],
+        managerSignatureMetadata: {
+          'capturedAt': nowUtcIso,
+          'latitude': lat,
+          'longitude': lng,
+        },
         otherSignature: uploaded[2],
+        otherSignatureMetadata: {
+          'capturedAt': nowUtcIso,
+          'latitude': lat,
+          'longitude': lng,
+        },
       );
-      await _remoteDataSource.startDelivery(deliveryId, request.toJson());
-      await _remoteDataSource.updateStatus(
+      final startDto = await _remoteDataSource.startDelivery(
+        deliveryId,
+        request.toJson(),
+      );
+      final statusDto = await _remoteDataSource.updateStatus(
         deliveryId,
         DeliveryStatusUpdate.loadingCompleted,
         vehicleId: vehicleId,
       );
+      return _deliveryModelFromDto(statusDto ?? startDto);
     } on DioException catch (exception) {
       throw mapDioException(exception);
     } on Failure {
@@ -132,7 +150,7 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
   }
 
   @override
-  Future<void> startTrip(String deliveryId, {String? vehicleId}) =>
+  Future<DeliveryModel?> startTrip(String deliveryId, {String? vehicleId}) =>
       updateStatus(
         deliveryId,
         DeliveryStatusUpdate.inDelivery,
@@ -140,23 +158,27 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       );
 
   @override
-  Future<void> atDeliveryLocation(String deliveryId, {String? vehicleId}) =>
-      updateStatus(
-        deliveryId,
-        DeliveryStatusUpdate.arrivedAtLocation,
-        vehicleId: vehicleId,
-      );
+  Future<DeliveryModel?> atDeliveryLocation(
+    String deliveryId, {
+    String? vehicleId,
+  }) => updateStatus(
+    deliveryId,
+    DeliveryStatusUpdate.arrivedAtLocation,
+    vehicleId: vehicleId,
+  );
 
   @override
-  Future<void> startOffloading(String deliveryId, {String? vehicleId}) =>
-      updateStatus(
-        deliveryId,
-        DeliveryStatusUpdate.offloadingStarted,
-        vehicleId: vehicleId,
-      );
+  Future<DeliveryModel?> startOffloading(
+    String deliveryId, {
+    String? vehicleId,
+  }) => updateStatus(
+    deliveryId,
+    DeliveryStatusUpdate.offloadingStarted,
+    vehicleId: vehicleId,
+  );
 
   @override
-  Future<void> completeOffloading(
+  Future<DeliveryModel?> completeOffloading(
     String deliveryId,
     CompleteOffloadingSubmission submission, {
     String? vehicleId,
@@ -198,13 +220,18 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         clientSignature: uploaded[1],
         endOdometerReading: submission.endOdometerReading,
         buyerId: submission.buyerId,
+        clientComment: submission.clientComment,
       );
-      await _remoteDataSource.endDelivery(deliveryId, request.toJson());
-      await _remoteDataSource.updateStatus(
+      final endDto = await _remoteDataSource.endDelivery(
+        deliveryId,
+        request.toJson(),
+      );
+      final statusDto = await _remoteDataSource.updateStatus(
         deliveryId,
         DeliveryStatusUpdate.completed,
         vehicleId: vehicleId,
       );
+      return _deliveryModelFromDto(statusDto ?? endDto);
     } on DioException catch (exception) {
       throw mapDioException(exception);
     } on Failure {
@@ -256,46 +283,30 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
     }
   }
 
+  Future<DeliveryModel?> _runModelAction(
+    Future<DeliveryScheduleDto?> Function() action, {
+    required String fallbackMessage,
+  }) async {
+    try {
+      final dto = await action();
+      return _deliveryModelFromDto(dto);
+    } on DioException catch (exception) {
+      throw mapDioException(exception);
+    } on Failure {
+      rethrow;
+    } catch (_) {
+      throw UnknownFailure(fallbackMessage);
+    }
+  }
+
   Future<List<DeliveryModel>> _getSchedule(
     Future<List<DeliveryScheduleDto>> Function() request,
   ) async {
     try {
       final items = await request();
       return items
-          .map(
-            (dto) => DeliveryModel(
-              id: dto.id,
-              buyerId: dto.buyerId,
-              auctionId: dto.auctionId,
-              dateTime: dto.scheduleDate.toLocal(),
-              clientName: dto.buyerName,
-              clientAddress: dto.address,
-              status: DeliveryStatus.fromApi(dto.deliveryStatus),
-              paymentStatus: dto.paymentStatus,
-              invoicePath: dto.invoicePath,
-              assignment: _assignmentFromDto(dto.assignment),
-              lots: dto.lots
-                  .map(
-                    (lot) => DeliveryLot(
-                      clientName: lot.buyerName,
-                      buyerId: lot.buyerId,
-                      mainBuyer: lot.mainBuyer,
-                      deliveryId: lot.deliveryId,
-                      address: lot.address,
-                      farmName: lot.farmName,
-                      companyName: lot.companyName,
-                      contactNumber: lot.contactNumber,
-                      latitude: lot.latitude,
-                      longitude: lot.longitude,
-                      invoicePath: lot.invoicePath,
-                      loadingOrder: lot.loadingOrder,
-                      status: DeliveryStatus.fromApi(lot.deliveryStatus),
-                      assignment: _assignmentFromDto(lot.assignment),
-                    ),
-                  )
-                  .toList(growable: false),
-            ),
-          )
+          .map(_deliveryModelFromDto)
+          .whereType<DeliveryModel>()
           .toList(growable: false);
     } on DioException catch (exception) {
       throw mapDioException(exception);
@@ -306,6 +317,69 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
     } on TypeError {
       throw const UnknownFailure('Invalid schedule response from server');
     }
+  }
+
+  DeliveryModel? _deliveryModelFromDto(DeliveryScheduleDto? dto) {
+    if (dto == null) return null;
+    return DeliveryModel(
+      id: dto.id,
+      buyerId: dto.buyerId,
+      auctionId: dto.auctionId,
+      dateTime: dto.scheduleDate.toLocal(),
+      clientName: dto.buyerName,
+      clientAddress: dto.address,
+      status: DeliveryStatus.fromApi(dto.deliveryStatus),
+      paymentStatus: dto.paymentStatus,
+      invoicePath: dto.invoicePath,
+      assignment: _assignmentFromDto(dto.assignment),
+      multiPickupPointJob: dto.multiPickupPointJob,
+      multiplePickupPoint: dto.multiplePickupPoint,
+      pickupNotice: dto.pickupNotice,
+      pickupStops: dto.pickupStops
+          .map(
+            (s) => PickupStop(
+              order: s.order,
+              address: s.address,
+              lotNumbers: s.lotNumbers,
+            ),
+          )
+          .toList(growable: false),
+      vehicleLotTotal: dto.vehicleLotTotal,
+      totalLots: dto.totalLots,
+      assignedLots: dto.assignedLots,
+      deliveredLots: dto.deliveredLots,
+      balanceLots: dto.balanceLots,
+      balanceLotNumbers: dto.balanceLotNumbers,
+      partialDelivery: dto.partialDelivery,
+      permits: dto.permits,
+      assignments: dto.assignments
+          .map(_assignmentFromDto)
+          .whereType<DeliveryAssignment>()
+          .toList(growable: false),
+      startVehiclePhotos: dto.startVehiclePhotos,
+      startAnimalPhotos: dto.startAnimalPhotos,
+      onLoadAnimalsVideo: dto.onLoadAnimalsVideo,
+      lots: dto.lots
+          .map(
+            (lot) => DeliveryLot(
+              clientName: lot.buyerName,
+              buyerId: lot.buyerId,
+              mainBuyer: lot.mainBuyer,
+              deliveryId: lot.deliveryId,
+              address: lot.address,
+              farmName: lot.farmName,
+              companyName: lot.companyName,
+              contactNumber: lot.contactNumber,
+              latitude: lot.latitude,
+              longitude: lot.longitude,
+              invoicePath: lot.invoicePath,
+              loadingOrder: lot.loadingOrder,
+              status: DeliveryStatus.fromApi(lot.deliveryStatus),
+              assignment: _assignmentFromDto(lot.assignment),
+            ),
+          )
+          .toList(growable: false),
+    );
   }
 
   DeliveryAssignment? _assignmentFromDto(DeliveryAssignmentDto? dto) {
@@ -319,6 +393,8 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       status: dto.deliveryStatus == null
           ? null
           : DeliveryStatus.fromApi(dto.deliveryStatus!),
+      lotNumbers: dto.lotNumbers,
+      loadedLotNumbers: dto.loadedLotNumbers,
     );
   }
 }

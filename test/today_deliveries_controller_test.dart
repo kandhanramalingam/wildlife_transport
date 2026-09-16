@@ -62,40 +62,49 @@ class _OverlappingScheduleRepository implements DeliveryRepository {
   }) async => const [];
 
   @override
-  Future<void> atDeliveryLocation(
+  Future<DeliveryModel?> atDeliveryLocation(
     String deliveryId, {
     String? vehicleId,
-  }) async {}
+  }) async => null;
 
   @override
-  Future<void> completeLoading(
+  Future<DeliveryModel?> completeLoading(
     String deliveryId,
     StartDeliverySubmission submission, {
     String? vehicleId,
-  }) async {}
+  }) async => null;
 
   @override
-  Future<void> completeOffloading(
+  Future<DeliveryModel?> completeOffloading(
     String deliveryId,
     CompleteOffloadingSubmission submission, {
     String? vehicleId,
-  }) async {}
+  }) async => null;
 
   @override
-  Future<void> startLoading(String deliveryId, {String? vehicleId}) async {}
+  Future<DeliveryModel?> startLoading(
+    String deliveryId, {
+    String? vehicleId,
+  }) async => null;
 
   @override
-  Future<void> startOffloading(String deliveryId, {String? vehicleId}) async {}
+  Future<DeliveryModel?> startOffloading(
+    String deliveryId, {
+    String? vehicleId,
+  }) async => null;
 
   @override
-  Future<void> startTrip(String deliveryId, {String? vehicleId}) async {}
+  Future<DeliveryModel?> startTrip(
+    String deliveryId, {
+    String? vehicleId,
+  }) async => null;
 
   @override
-  Future<void> updateStatus(
+  Future<DeliveryModel?> updateStatus(
     String deliveryId,
     DeliveryStatusUpdate status, {
     String? vehicleId,
-  }) async {}
+  }) async => null;
 
   @override
   Future<void> submitDriverLocation(DriverLocationReading reading) async {}

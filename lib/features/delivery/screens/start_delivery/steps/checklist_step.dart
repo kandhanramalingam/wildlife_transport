@@ -51,6 +51,7 @@ class _ChecklistStepState extends State<ChecklistStep>
   ];
 
   bool get _allChecked => _items.every((item) => item.checked);
+  bool get _canProceed => _items.every((item) => item.isValid);
 
   @override
   bool get wantKeepAlive => true;
@@ -58,6 +59,9 @@ class _ChecklistStepState extends State<ChecklistStep>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final completedCount = _items.where((i) => i.checked).length;
+    final reasonedCount = _items.where((i) => !i.checked && i.reason.trim().isNotEmpty).length;
+
     return Column(
       children: [
         const Padding(
@@ -79,10 +83,11 @@ class _ChecklistStepState extends State<ChecklistStep>
           child: Row(
             children: [
               Text(
-                '${_items.where((i) => i.checked).length}/${_items.length} completed',
+                '$completedCount/${_items.length} checked'
+                '${reasonedCount > 0 ? ' ($reasonedCount skipped with reason)' : ''}',
                 style: TextStyle(
                   fontSize: 13,
-                  color: _allChecked
+                  color: _canProceed
                       ? Colors.green.shade700
                       : AppTheme.textSecondary,
                   fontWeight: FontWeight.w500,
@@ -105,30 +110,71 @@ class _ChecklistStepState extends State<ChecklistStep>
           child: ListView.separated(
             itemCount: _items.length,
             separatorBuilder: (_, _) =>
-                const Divider(height: 1, indent: 56, endIndent: 16),
+                const Divider(height: 1, indent: 16, endIndent: 16),
             itemBuilder: (_, i) {
               final item = _items[i];
-              return CheckboxListTile(
-                value: item.checked,
-                onChanged: (v) => setState(() => item.checked = v ?? false),
-                title: Text(
-                  item.title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: item.checked
-                        ? AppTheme.textSecondary
-                        : AppTheme.textPrimary,
-                    decoration: item.checked
-                        ? TextDecoration.lineThrough
-                        : null,
-                  ),
-                ),
-                activeColor: AppTheme.primary,
-                checkColor: Colors.white,
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 2,
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CheckboxListTile(
+                      value: item.checked,
+                      onChanged: (v) => setState(() => item.checked = v ?? false),
+                      title: Text(
+                        item.title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: item.checked
+                              ? AppTheme.textSecondary
+                              : AppTheme.textPrimary,
+                          decoration: item.checked
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
+                      activeColor: AppTheme.primary,
+                      checkColor: Colors.white,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 0,
+                      ),
+                    ),
+                    if (!item.checked)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(48, 0, 16, 8),
+                        child: TextFormField(
+                          initialValue: item.reason,
+                          onChanged: (val) => setState(() => item.reason = val),
+                          decoration: InputDecoration(
+                            hintText: 'Reason for skipping this item *',
+                            hintStyle: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade500,
+                            ),
+                            filled: true,
+                            fillColor: item.reason.trim().isEmpty
+                                ? Colors.amber.shade50.withValues(alpha: 0.5)
+                                : Colors.grey.shade50,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              borderSide: BorderSide(
+                                color: item.reason.trim().isEmpty
+                                    ? Colors.amber.shade600
+                                    : Colors.grey.shade300,
+                              ),
+                            ),
+                          ),
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                  ],
                 ),
               );
             },
@@ -140,24 +186,39 @@ class _ChecklistStepState extends State<ChecklistStep>
             color: Colors.white,
             border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
           ),
-          child: SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: _allChecked
-                  ? () => widget.onNext(
-                      _items
-                          .map(
-                            (item) => DeliveryChecklistItem(
-                              item: item.title,
-                              checked: item.checked,
-                            ),
-                          )
-                          .toList(growable: false),
-                    )
-                  : null,
-              child: const Text('Next'),
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!_canProceed)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    'Please check all items or provide reasons for unchecked items',
+                    style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _canProceed
+                      ? () => widget.onNext(
+                          _items
+                              .map(
+                                (item) => DeliveryChecklistItem(
+                                  item: item.title,
+                                  checked: item.checked,
+                                  reason: item.checked ? null : item.reason.trim(),
+                                ),
+                              )
+                              .toList(growable: false),
+                        )
+                      : null,
+                  child: const Text('Next'),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -168,5 +229,8 @@ class _ChecklistStepState extends State<ChecklistStep>
 class _CheckItem {
   final String title;
   bool checked;
-  _CheckItem(this.title) : checked = false;
+  String reason;
+  _CheckItem(this.title) : checked = false, reason = '';
+
+  bool get isValid => checked || reason.trim().isNotEmpty;
 }

@@ -11,6 +11,7 @@ import '../models/delivery_model.dart';
 import '../models/location_tracking.dart';
 import '../widgets/client_contact_row.dart';
 import '../widgets/customer_location_confirmation_sheet.dart';
+import '../widgets/loading_media_sheet.dart';
 import 'start_delivery/start_delivery_screen.dart';
 
 class TripCustomersScreen extends StatefulWidget {
@@ -325,31 +326,290 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
 
     final nextDeliveryId = _nextCustomerDeliveryId;
 
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      itemCount: _customers.length,
-      itemBuilder: (context, index) {
-        final customer = _customers[index];
-        final isActive = _activeCustomerDeliveryId == customer.deliveryId;
-        final isLocked =
-            !customer.deliveryCompleted &&
-            (customer.deliveryId != nextDeliveryId ||
-                (_activeCustomerDeliveryId != null && !isActive));
-        final isStarting = _startingOffloadingDeliveryId == customer.deliveryId;
-        final isSavingLocation =
-            _savingLocationDeliveryId == customer.deliveryId;
-        return _CustomerCard(
-          customer: customer,
-          isActive: isActive,
-          isLocked: isLocked,
-          isStarting: isStarting,
-          isSavingLocation: isSavingLocation,
-          onArrived: () => _startOffLoading(customer),
-          onViewInvoice: () => _viewInvoice(customer),
-          onStoreLocation: () => _storeCustomerLocation(customer),
-        );
-      },
+      children: [
+        if (widget.delivery.partialDelivery ||
+            widget.delivery.isMultiPickup ||
+            widget.delivery.permits.isNotEmpty)
+          _buildTripOverviewHeader(),
+        ..._customers.map((customer) {
+          final isActive = _activeCustomerDeliveryId == customer.deliveryId;
+          final isLocked =
+              !customer.deliveryCompleted &&
+              (customer.deliveryId != nextDeliveryId ||
+                  (_activeCustomerDeliveryId != null && !isActive));
+          final isStarting =
+              _startingOffloadingDeliveryId == customer.deliveryId;
+          final isSavingLocation =
+              _savingLocationDeliveryId == customer.deliveryId;
+          return _CustomerCard(
+            customer: customer,
+            isActive: isActive,
+            isLocked: isLocked,
+            isStarting: isStarting,
+            isSavingLocation: isSavingLocation,
+            onArrived: () => _startOffLoading(customer),
+            onViewInvoice: () => _viewInvoice(customer),
+            onStoreLocation: () => _storeCustomerLocation(customer),
+          );
+        }),
+      ],
     );
+  }
+
+  Widget _buildTripOverviewHeader() {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.delivery.partialDelivery) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade600, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.pie_chart_outline,
+                          size: 15,
+                          color: Colors.amber.shade900,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Partial • ${widget.delivery.deliveredLots}/${widget.delivery.totalLots} Lots Delivered',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.amber.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (widget.delivery.balanceLotNumbers.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Remaining Lots: ${widget.delivery.balanceLotNumbers.join(', ')}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber.shade900,
+                        ),
+                      ),
+                    ] else if (widget.delivery.balanceLots > 0) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Remaining Lots: ${widget.delivery.balanceLots}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber.shade900,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (widget.delivery.isMultiPickup) ...[
+              const Row(
+                children: [
+                  Icon(Icons.alt_route, size: 16, color: AppTheme.primary),
+                  SizedBox(width: 6),
+                  Text(
+                    'Pickup Stops (Multi-Pickup Trip)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              if (widget.delivery.pickupNotice != null &&
+                  widget.delivery.pickupNotice!.trim().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  widget.delivery.pickupNotice!.trim(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+              if (widget.delivery.pickupStops.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                ...widget.delivery.pickupStops.map(
+                  (stop) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Stop ${stop.order}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (stop.address.isNotEmpty)
+                                Text(
+                                  stop.address,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              if (stop.lotNumbers.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Lots to collect: ${stop.lotNumbers.join(', ')}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+            ],
+            if (widget.delivery.permits.isNotEmpty) ...[
+              Row(
+                children: [
+                  const Icon(
+                    Icons.description_outlined,
+                    size: 16,
+                    color: AppTheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Permits (${widget.delivery.permits.length})',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.delivery.permits.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final path = entry.value;
+                  final fileName = path.split('/').last;
+                  return ActionChip(
+                    avatar: const Icon(
+                      Icons.picture_as_pdf_outlined,
+                      size: 16,
+                      color: AppTheme.primary,
+                    ),
+                    label: Text(
+                      fileName.isNotEmpty
+                          ? 'Permit ${index + 1}'
+                          : 'Permit ${index + 1}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                    backgroundColor: Colors.white,
+                    side: BorderSide(
+                      color: AppTheme.primary.withValues(alpha: 0.3),
+                    ),
+                    onPressed: () => _openPermit(path),
+                  );
+                }).toList(growable: false),
+              ),
+            ],
+            if (widget.delivery.hasLoadingMedia) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      LoadingMediaSheet.show(context, widget.delivery),
+                  icon: const Icon(Icons.photo_library_outlined, size: 18),
+                  label: Text(
+                    'View Loading Photos & Video (${widget.delivery.allLoadingPhotos.length})',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primary,
+                    side: BorderSide(
+                      color: AppTheme.primary.withValues(alpha: 0.5),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPermit(String permitPath) async {
+    try {
+      final uri = resolveInvoiceUri(Environment.apiBaseUrl, permitPath);
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened && mounted) {
+        _showError('Could not open the permit file.');
+      }
+    } catch (_) {
+      if (mounted) {
+        _showError('Could not open the permit file.');
+      }
+    }
   }
 }
 
@@ -477,10 +737,18 @@ class _CustomerCard extends StatelessWidget {
               const SizedBox(height: 10),
               ClientContactRow(
                 contactNumber: customer.contactNumber,
+                clientName: customer.clientName,
                 fontSize: 14,
                 destinationLatitude: customer.latitude,
                 destinationLongitude: customer.longitude,
                 showNavigation: !isLocked,
+              ),
+            ],
+            if (customer.assignment?.lotNumbers.isNotEmpty == true) ...[
+              const SizedBox(height: 10),
+              _ClientDetailRow(
+                icon: Icons.inventory_2_outlined,
+                value: 'Lots: ${customer.assignment!.lotNumbers.join(', ')}',
               ),
             ],
             if (customer.latitude.isNotEmpty ||

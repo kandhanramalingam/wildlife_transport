@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/config/environment.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/delivery_model.dart';
+import '../screens/trip_customers_screen.dart';
 import 'client_contact_row.dart';
+import 'loading_media_sheet.dart';
 
 typedef LotReorderCallback = void Function(int oldIndex, int newIndex);
 
@@ -32,8 +37,24 @@ class DeliveryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDateTimeRow(),
+            if (delivery.partialDelivery) ...[
+              const SizedBox(height: 8),
+              _buildPartialDeliveryBadge(),
+            ],
             const SizedBox(height: 10),
             _buildAssignmentSummary(),
+            if (delivery.isMultiPickup) ...[
+              const SizedBox(height: 10),
+              _buildPickupStopsSection(),
+            ],
+            if (delivery.permits.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _buildPermitsSection(context),
+            ],
+            if (delivery.hasLoadingMedia) ...[
+              const SizedBox(height: 10),
+              _buildLoadingMediaSection(context),
+            ],
             const SizedBox(height: 12),
             _buildDivider(),
             const SizedBox(height: 12),
@@ -82,12 +103,66 @@ class DeliveryCard extends StatelessWidget {
     );
   }
 
+  Widget _buildPartialDeliveryBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.shade600, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.pie_chart_outline, size: 15, color: Colors.amber.shade900),
+              const SizedBox(width: 6),
+              Text(
+                'Partial • ${delivery.deliveredLots}/${delivery.totalLots} Lots Delivered',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.amber.shade900,
+                ),
+              ),
+            ],
+          ),
+          if (delivery.balanceLotNumbers.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              'Remaining Lots: ${delivery.balanceLotNumbers.join(', ')}',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.amber.shade900,
+              ),
+            ),
+          ] else if (delivery.balanceLots > 0) ...[
+            const SizedBox(height: 3),
+            Text(
+              'Remaining Lots: ${delivery.balanceLots}',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.amber.shade900,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildDivider() {
     return const Divider(height: 1, color: Color(0xFFEEEEEE));
   }
 
   Widget _buildAssignmentSummary() {
     final driverName = delivery.assignment?.driverName.trim() ?? '';
+    final assignedLots = delivery.assignment?.lotNumbers ?? const [];
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -104,8 +179,240 @@ class DeliveryCard extends StatelessWidget {
           icon: Icons.person_pin_circle_outlined,
           label: 'Your status: ${_statusLabel(delivery.status)}',
         ),
+        if (assignedLots.isNotEmpty)
+          _AssignmentChip(
+            icon: Icons.inventory_2_outlined,
+            label: 'Assigned Lots: ${assignedLots.join(', ')}',
+          ),
+        if (delivery.assignments.length > 1)
+          ...delivery.assignments
+              .where((a) => a.vehicleId != delivery.assignedVehicleId && a.lotNumbers.isNotEmpty)
+              .map(
+                (a) => _AssignmentChip(
+                  icon: Icons.local_shipping_outlined,
+                  label: '${a.vehicleLabel} Lots: ${a.lotNumbers.join(', ')}',
+                ),
+              ),
+        if (delivery.isMultiPickup)
+          const _AssignmentChip(
+            icon: Icons.alt_route,
+            label: 'Multi Pickup Point',
+          ),
       ],
     );
+  }
+
+  Widget _buildPickupStopsSection() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9F9FB),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.alt_route, size: 16, color: AppTheme.primary),
+              SizedBox(width: 6),
+              Text(
+                'Pickup Stops (Multi-Pickup Trip)',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          if (delivery.pickupNotice != null &&
+              delivery.pickupNotice!.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              delivery.pickupNotice!.trim(),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+                height: 1.3,
+              ),
+            ),
+          ],
+          if (delivery.pickupStops.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ...delivery.pickupStops.map(
+              (stop) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Stop ${stop.order}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (stop.address.isNotEmpty)
+                            Text(
+                              stop.address,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          if (stop.lotNumbers.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'Lots to collect: ${stop.lotNumbers.join(', ')}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermitsSection(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.description_outlined,
+                size: 16,
+                color: AppTheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Permits (${delivery.permits.length})',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: delivery.permits.asMap().entries.map((entry) {
+              final index = entry.key;
+              final path = entry.value;
+              final fileName = path.split('/').last;
+              return ActionChip(
+                avatar: const Icon(
+                  Icons.picture_as_pdf_outlined,
+                  size: 16,
+                  color: AppTheme.primary,
+                ),
+                label: Text(
+                  fileName.isNotEmpty ? fileName : 'Permit ${index + 1}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primary,
+                  ),
+                ),
+                backgroundColor: Colors.white,
+                side: BorderSide(
+                  color: AppTheme.primary.withValues(alpha: 0.3),
+                ),
+                onPressed: () => _openPermit(context, path),
+              );
+            }).toList(growable: false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingMediaSection(BuildContext context) {
+    final photoCount = delivery.allLoadingPhotos.length;
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () => LoadingMediaSheet.show(context, delivery),
+        icon: const Icon(Icons.photo_library_outlined, size: 17),
+        label: Text(
+          'View Loading Photos ($photoCount)',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppTheme.primary,
+          side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPermit(BuildContext context, String permitPath) async {
+    try {
+      final uri = resolveInvoiceUri(Environment.apiBaseUrl, permitPath);
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open the permit file.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open the permit file.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   String _statusLabel(DeliveryStatus status) => switch (status) {
@@ -224,7 +531,12 @@ class DeliveryCard extends StatelessWidget {
         ],
         if (lot.contactNumber.isNotEmpty) ...[
           const SizedBox(height: 8),
-          ClientContactRow(contactNumber: lot.contactNumber),
+          ClientContactRow(
+            contactNumber: lot.contactNumber,
+            clientName: lot.clientName,
+            destinationLatitude: lot.latitude,
+            destinationLongitude: lot.longitude,
+          ),
         ],
         if (lot.latitude.isNotEmpty || lot.longitude.isNotEmpty) ...[
           const SizedBox(height: 8),

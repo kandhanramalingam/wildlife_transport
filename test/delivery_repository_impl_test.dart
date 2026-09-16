@@ -111,18 +111,23 @@ class _RecordingDeliveryDataSource implements DeliveryRemoteDataSource {
   final statusUpdates = <(String, DeliveryStatusUpdate, String?)>[];
 
   @override
-  Future<void> endDelivery(String deliveryId, Map<String, dynamic> body) async {
+  Future<DeliveryScheduleDto?> endDelivery(
+    String deliveryId,
+    Map<String, dynamic> body,
+  ) async {
     endedDeliveryId = deliveryId;
     endBody = body;
+    return null;
   }
 
   @override
-  Future<void> updateStatus(
+  Future<DeliveryScheduleDto?> updateStatus(
     String deliveryId,
     DeliveryStatusUpdate status, {
     String? vehicleId,
   }) async {
     statusUpdates.add((deliveryId, status, vehicleId));
+    return null;
   }
 
   @override
@@ -144,11 +149,12 @@ class _RecordingDeliveryDataSource implements DeliveryRemoteDataSource {
   }) async => const [];
 
   @override
-  Future<void> startDelivery(
+  Future<DeliveryScheduleDto?> startDelivery(
     String deliveryId,
     Map<String, dynamic> body,
   ) async {
     startBody = body;
+    return null;
   }
 
   @override

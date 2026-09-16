@@ -98,7 +98,67 @@ void main() {
     expect(find.text('Your status: In delivery'), findsOneWidget);
     expect(find.textContaining('TRUCK-ONE'), findsNothing);
   });
+
+  testWidgets('renders partial delivery badge, pickup stops, and permits', (
+    tester,
+  ) async {
+    final delivery = DeliveryModel(
+      id: 'route-partial',
+      dateTime: DateTime(2026, 9, 15, 10, 0),
+      clientName: 'Main Buyer',
+      clientAddress: 'Main Address',
+      lots: const [
+        DeliveryLot(
+          clientName: 'Main Buyer',
+          buyerId: 'buyer-1',
+          mainBuyer: true,
+          deliveryId: 'delivery-1',
+          address: 'Main Address',
+        ),
+      ],
+      vehicleLotTotal: 5,
+      totalLots: 5,
+      assignedLots: 4,
+      deliveredLots: 1,
+      balanceLots: 4,
+      balanceLotNumbers: const ['2', '3', '4', '5'],
+      partialDelivery: true,
+      multiPickupPointJob: true,
+      pickupNotice: 'Check gate before loading',
+      pickupStops: const [
+        PickupStop(
+          order: 1,
+          address: 'Farm Alpha',
+          lotNumbers: ['1', '2'],
+        ),
+      ],
+      permits: const ['uploads/permits/permit-123.pdf'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DeliveryCard(
+              delivery: delivery,
+              onStartLoading: (_) {},
+              onStartTrip: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Partial • 1/5 Lots Delivered'), findsOneWidget);
+    expect(find.text('Remaining Lots: 2, 3, 4, 5'), findsOneWidget);
+    expect(find.text('Pickup Stops (Multi-Pickup Trip)'), findsOneWidget);
+    expect(find.text('Check gate before loading'), findsOneWidget);
+    expect(find.text('Farm Alpha'), findsOneWidget);
+    expect(find.text('Permits (1)'), findsOneWidget);
+    expect(find.text('permit-123.pdf'), findsOneWidget);
+  });
 }
+
 
 DeliveryModel _delivery({DeliveryStatus firstStatus = DeliveryStatus.pending}) {
   return DeliveryModel(

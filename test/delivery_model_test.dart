@@ -221,4 +221,56 @@ void main() {
     expect(updated.customerLocationCapturedAt, capturedAt);
     expect(updated.status, DeliveryStatus.atDeliveryPoint);
   });
+
+  test('computes partial delivery properties and labels correctly', () {
+    final delivery = DeliveryModel(
+      id: 'delivery-1',
+      dateTime: DateTime(2026, 9, 15),
+      clientName: 'Buyer',
+      clientAddress: 'Address',
+      vehicleLotTotal: 5,
+      totalLots: 5,
+      assignedLots: 4,
+      deliveredLots: 1,
+      balanceLots: 4,
+      balanceLotNumbers: const ['2', '3', '4', '5'],
+      partialDelivery: true,
+      permits: const ['uploads/permits/p1.pdf'],
+      pickupStops: const [
+        PickupStop(order: 2, address: 'Stop 2', lotNumbers: ['3', '4']),
+        PickupStop(order: 1, address: 'Stop 1', lotNumbers: ['1', '2']),
+      ],
+      multiPickupPointJob: true,
+      pickupNotice: 'Load Stop 1 before Stop 2',
+    );
+
+    expect(delivery.isPartial, isTrue);
+    expect(delivery.partialProgressLabel, '1 / 5');
+    expect(delivery.balanceLotsLabel, 'Balance: 2, 3, 4, 5');
+    expect(delivery.isMultiPickup, isTrue);
+    expect(delivery.sortedPickupStops.first.order, 1);
+    expect(delivery.sortedPickupStops.last.order, 2);
+    expect(delivery.permits, ['uploads/permits/p1.pdf']);
+  });
+
+  test('handles zero balance lots label gracefully', () {
+    final delivery = DeliveryModel(
+      id: 'delivery-2',
+      dateTime: DateTime(2026, 9, 15),
+      clientName: 'Buyer',
+      clientAddress: 'Address',
+      vehicleLotTotal: 5,
+      totalLots: 5,
+      assignedLots: 5,
+      deliveredLots: 5,
+      balanceLots: 0,
+      balanceLotNumbers: const [],
+      partialDelivery: false,
+    );
+
+    expect(delivery.isPartial, isFalse);
+    expect(delivery.partialProgressLabel, '5 / 5');
+    expect(delivery.balanceLotsLabel, '0 Remaining');
+  });
 }
+

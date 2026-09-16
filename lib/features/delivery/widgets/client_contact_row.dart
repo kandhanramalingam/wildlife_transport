@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../screens/customer_directions_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../screens/customer_directions_screen.dart';
+import '../utils/whatsapp_helper.dart';
 
 class ClientContactRow extends StatelessWidget {
   final String contactNumber;
+  final String clientName;
   final double fontSize;
   final String destinationLatitude;
   final String destinationLongitude;
   final bool showNavigation;
+  final String? whatsappMessage;
 
   const ClientContactRow({
     super.key,
     required this.contactNumber,
+    this.clientName = 'Client',
     this.fontSize = 13,
     this.destinationLatitude = '',
     this.destinationLongitude = '',
     this.showNavigation = false,
+    this.whatsappMessage,
   });
 
   Future<void> _openDialer(BuildContext context) async {
@@ -81,6 +86,9 @@ class ClientContactRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cleanPhone = WhatsAppHelper.formatPhoneNumber(contactNumber);
+    final hasPhone = cleanPhone.isNotEmpty;
+
     return Row(
       children: [
         const Icon(
@@ -100,7 +108,7 @@ class ClientContactRow extends StatelessWidget {
           ),
         ),
         IconButton.filled(
-          onPressed: () => _openDialer(context),
+          onPressed: hasPhone ? () => _openDialer(context) : null,
           icon: const Icon(Icons.call_rounded, size: 19),
           tooltip: 'Call $contactNumber',
           style: IconButton.styleFrom(
@@ -111,15 +119,24 @@ class ClientContactRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        IconButton.outlined(
-          onPressed: null,
+        IconButton.filled(
+          onPressed: hasPhone
+              ? () => WhatsAppHelper.launchWhatsApp(
+                    context: context,
+                    contactNumber: contactNumber,
+                    message: whatsappMessage ??
+                        'Hello $clientName,\n\nI am your AWA Transport driver regarding your delivery.',
+                  )
+              : null,
           icon: const FaIcon(FontAwesomeIcons.whatsapp, size: 20),
-          tooltip: 'WhatsApp (coming soon)',
+          tooltip: 'Send WhatsApp message',
           style: IconButton.styleFrom(
+            backgroundColor: const Color(0xFF25D366),
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: const Color(0xFFE0E0E0),
             disabledForegroundColor: const Color(0xFFAAAAAA),
             fixedSize: const Size(38, 38),
             padding: EdgeInsets.zero,
-            side: const BorderSide(color: Color(0xFFD0D0D0)),
           ),
         ),
         if (showNavigation) ...[

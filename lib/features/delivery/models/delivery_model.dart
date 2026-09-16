@@ -62,6 +62,18 @@ enum DeliveryStatusUpdate {
   const DeliveryStatusUpdate(this.apiValue);
 }
 
+class PickupStop {
+  final int order;
+  final String address;
+  final List<String> lotNumbers;
+
+  const PickupStop({
+    this.order = 1,
+    this.address = '',
+    this.lotNumbers = const [],
+  });
+}
+
 class DeliveryAssignment {
   final String driverId;
   final String driverName;
@@ -69,6 +81,8 @@ class DeliveryAssignment {
   final String vehicleRegistrationNumber;
   final String vehicleDescription;
   final DeliveryStatus? status;
+  final List<String> lotNumbers;
+  final List<String> loadedLotNumbers;
 
   const DeliveryAssignment({
     required this.driverId,
@@ -77,6 +91,8 @@ class DeliveryAssignment {
     this.vehicleRegistrationNumber = '',
     this.vehicleDescription = '',
     this.status,
+    this.lotNumbers = const [],
+    this.loadedLotNumbers = const [],
   });
 
   String get vehicleLabel {
@@ -184,6 +200,22 @@ class DeliveryModel {
   final String? invoicePath;
   final List<DeliveryLot> lots;
   final DeliveryAssignment? assignment;
+  final bool multiPickupPointJob;
+  final bool multiplePickupPoint;
+  final String? pickupNotice;
+  final List<PickupStop> pickupStops;
+  final int vehicleLotTotal;
+  final int totalLots;
+  final int assignedLots;
+  final int deliveredLots;
+  final int balanceLots;
+  final List<String> balanceLotNumbers;
+  final bool partialDelivery;
+  final List<String> permits;
+  final List<DeliveryAssignment> assignments;
+  final List<String> startVehiclePhotos;
+  final List<String> startAnimalPhotos;
+  final String? onLoadAnimalsVideo;
 
   const DeliveryModel({
     required this.id,
@@ -197,7 +229,50 @@ class DeliveryModel {
     this.invoicePath,
     this.lots = const [],
     this.assignment,
+    this.multiPickupPointJob = false,
+    this.multiplePickupPoint = false,
+    this.pickupNotice,
+    this.pickupStops = const [],
+    this.vehicleLotTotal = 0,
+    this.totalLots = 0,
+    this.assignedLots = 0,
+    this.deliveredLots = 0,
+    this.balanceLots = 0,
+    this.balanceLotNumbers = const [],
+    this.partialDelivery = false,
+    this.permits = const [],
+    this.assignments = const [],
+    this.startVehiclePhotos = const [],
+    this.startAnimalPhotos = const [],
+    this.onLoadAnimalsVideo,
   });
+
+  List<String> get allLoadingPhotos => [
+        ...startVehiclePhotos,
+        ...startAnimalPhotos,
+      ];
+
+  bool get hasLoadingMedia =>
+      allLoadingPhotos.isNotEmpty ||
+      (onLoadAnimalsVideo != null && onLoadAnimalsVideo!.isNotEmpty);
+
+  bool get isMultiPickup =>
+      multiPickupPointJob || multiplePickupPoint || pickupStops.isNotEmpty;
+
+  List<PickupStop> get sortedPickupStops =>
+      List.of(pickupStops)..sort((a, b) => a.order.compareTo(b.order));
+
+  bool get isPartial =>
+      partialDelivery ||
+      (totalLots > 0 &&
+          (assignedLots < totalLots ||
+              (deliveredLots > 0 && balanceLots > 0)));
+
+  String get partialProgressLabel => '$deliveredLots / $totalLots';
+
+  String get balanceLotsLabel => balanceLotNumbers.isNotEmpty
+      ? 'Balance: ${balanceLotNumbers.join(', ')}'
+      : '$balanceLots Remaining';
 
   bool get allLotsLoaded =>
       lots.isEmpty || lots.every((lot) => lot.loadingCompleted);
@@ -247,7 +322,22 @@ class DeliveryModel {
 
   String get assignedVehicleLabel => assignment?.vehicleLabel ?? '';
 
-  DeliveryModel copyWith({DeliveryStatus? status, List<DeliveryLot>? lots}) {
+  DeliveryModel copyWith({
+    DeliveryStatus? status,
+    List<DeliveryLot>? lots,
+    bool? partialDelivery,
+    int? deliveredLots,
+    int? balanceLots,
+    int? totalLots,
+    List<String>? balanceLotNumbers,
+    List<PickupStop>? pickupStops,
+    List<String>? permits,
+    List<DeliveryAssignment>? assignments,
+    DeliveryAssignment? assignment,
+    List<String>? startVehiclePhotos,
+    List<String>? startAnimalPhotos,
+    String? onLoadAnimalsVideo,
+  }) {
     return DeliveryModel(
       id: id,
       buyerId: buyerId,
@@ -259,7 +349,23 @@ class DeliveryModel {
       paymentStatus: paymentStatus,
       invoicePath: invoicePath,
       lots: lots ?? this.lots,
-      assignment: assignment,
+      assignment: assignment ?? this.assignment,
+      multiPickupPointJob: multiPickupPointJob,
+      multiplePickupPoint: multiplePickupPoint,
+      pickupNotice: pickupNotice,
+      pickupStops: pickupStops ?? this.pickupStops,
+      vehicleLotTotal: vehicleLotTotal,
+      totalLots: totalLots ?? this.totalLots,
+      assignedLots: assignedLots,
+      deliveredLots: deliveredLots ?? this.deliveredLots,
+      balanceLots: balanceLots ?? this.balanceLots,
+      balanceLotNumbers: balanceLotNumbers ?? this.balanceLotNumbers,
+      partialDelivery: partialDelivery ?? this.partialDelivery,
+      permits: permits ?? this.permits,
+      assignments: assignments ?? this.assignments,
+      startVehiclePhotos: startVehiclePhotos ?? this.startVehiclePhotos,
+      startAnimalPhotos: startAnimalPhotos ?? this.startAnimalPhotos,
+      onLoadAnimalsVideo: onLoadAnimalsVideo ?? this.onLoadAnimalsVideo,
     );
   }
 }

@@ -145,8 +145,9 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
 
   Future<void> _finishWorkflow(
     Uint8List managerSignature,
-    Uint8List? otherSignature,
-  ) async {
+    Uint8List? otherSignature, {
+    String? clientComment,
+  }) async {
     if (_isArrival) {
       final photos = _photos;
       final offLoadChecklist = _gameLoadingChecklist;
@@ -169,6 +170,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
             clientSignature: managerSignature,
             endOdometerReading: photos.odometerReading!,
             buyerId: buyerId,
+            clientComment: clientComment,
           ),
           vehicleId: widget.delivery.assignedVehicleId,
         );

@@ -13,13 +13,19 @@ abstract interface class DeliveryRemoteDataSource {
   });
   Future<String> uploadImage(List<int> bytes, String filename);
   Future<String> uploadVideo(List<int> bytes, String filename);
-  Future<void> updateStatus(
+  Future<DeliveryScheduleDto?> updateStatus(
     String deliveryId,
     DeliveryStatusUpdate status, {
     String? vehicleId,
   });
-  Future<void> startDelivery(String deliveryId, Map<String, dynamic> body);
-  Future<void> endDelivery(String deliveryId, Map<String, dynamic> body);
+  Future<DeliveryScheduleDto?> startDelivery(
+    String deliveryId,
+    Map<String, dynamic> body,
+  );
+  Future<DeliveryScheduleDto?> endDelivery(
+    String deliveryId,
+    Map<String, dynamic> body,
+  );
   Future<void> submitDriverLocation(DriverLocationReading reading);
   Future<Map<String, dynamic>> saveCustomerLocation(
     CustomerLocationCapture capture,
@@ -51,19 +57,27 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
       _uploadFile('file/upload-video', bytes, filename);
 
   @override
-  Future<void> updateStatus(
+  Future<DeliveryScheduleDto?> updateStatus(
     String deliveryId,
     DeliveryStatusUpdate status, {
     String? vehicleId,
   }) async {
     final normalizedVehicleId = vehicleId?.trim() ?? '';
-    await _dio.patch<void>(
+    final response = await _dio.patch<dynamic>(
       'driver-auth/delivery/$deliveryId/status',
       data: {
         'status': status.apiValue,
         if (normalizedVehicleId.isNotEmpty) 'vehicleId': normalizedVehicleId,
       },
     );
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return DeliveryScheduleDto.fromJson(
+        data,
+        authenticatedDriverId: _authenticatedDriverId?.call(),
+      );
+    }
+    return null;
   }
 
   Future<String> _uploadFile(
@@ -85,16 +99,41 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
   }
 
   @override
-  Future<void> startDelivery(
+  Future<DeliveryScheduleDto?> startDelivery(
     String deliveryId,
     Map<String, dynamic> body,
   ) async {
-    await _dio.post<void>('driver-auth/delivery/$deliveryId/start', data: body);
+    final response = await _dio.post<dynamic>(
+      'driver-auth/delivery/$deliveryId/start',
+      data: body,
+    );
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return DeliveryScheduleDto.fromJson(
+        data,
+        authenticatedDriverId: _authenticatedDriverId?.call(),
+      );
+    }
+    return null;
   }
 
   @override
-  Future<void> endDelivery(String deliveryId, Map<String, dynamic> body) async {
-    await _dio.post<void>('driver-auth/delivery/$deliveryId/end', data: body);
+  Future<DeliveryScheduleDto?> endDelivery(
+    String deliveryId,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _dio.post<dynamic>(
+      'driver-auth/delivery/$deliveryId/end',
+      data: body,
+    );
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return DeliveryScheduleDto.fromJson(
+        data,
+        authenticatedDriverId: _authenticatedDriverId?.call(),
+      );
+    }
+    return null;
   }
 
   @override
