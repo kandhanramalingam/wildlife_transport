@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/environment.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/document_preview.dart';
 import '../models/delivery_model.dart';
 import '../screens/trip_customers_screen.dart';
 import 'client_contact_row.dart';
@@ -37,10 +37,6 @@ class DeliveryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDateTimeRow(),
-            if (delivery.partialDelivery) ...[
-              const SizedBox(height: 8),
-              _buildPartialDeliveryBadge(),
-            ],
             const SizedBox(height: 10),
             _buildAssignmentSummary(),
             if (delivery.isMultiPickup) ...[
@@ -103,58 +99,6 @@ class DeliveryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPartialDeliveryBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.amber.shade600, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.pie_chart_outline, size: 15, color: Colors.amber.shade900),
-              const SizedBox(width: 6),
-              Text(
-                'Partial • ${delivery.deliveredLots}/${delivery.totalLots} Lots Delivered',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.amber.shade900,
-                ),
-              ),
-            ],
-          ),
-          if (delivery.balanceLotNumbers.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(
-              'Remaining Lots: ${delivery.balanceLotNumbers.join(', ')}',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.amber.shade900,
-              ),
-            ),
-          ] else if (delivery.balanceLots > 0) ...[
-            const SizedBox(height: 3),
-            Text(
-              'Remaining Lots: ${delivery.balanceLots}',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.amber.shade900,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _buildDivider() {
     return const Divider(height: 1, color: Color(0xFFEEEEEE));
   }
@@ -186,7 +130,11 @@ class DeliveryCard extends StatelessWidget {
           ),
         if (delivery.assignments.length > 1)
           ...delivery.assignments
-              .where((a) => a.vehicleId != delivery.assignedVehicleId && a.lotNumbers.isNotEmpty)
+              .where(
+                (a) =>
+                    a.vehicleId != delivery.assignedVehicleId &&
+                    a.lotNumbers.isNotEmpty,
+              )
               .map(
                 (a) => _AssignmentChip(
                   icon: Icons.local_shipping_outlined,
@@ -336,31 +284,35 @@ class DeliveryCard extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: delivery.permits.asMap().entries.map((entry) {
-              final index = entry.key;
-              final path = entry.value;
-              final fileName = path.split('/').last;
-              return ActionChip(
-                avatar: const Icon(
-                  Icons.picture_as_pdf_outlined,
-                  size: 16,
-                  color: AppTheme.primary,
-                ),
-                label: Text(
-                  fileName.isNotEmpty ? fileName : 'Permit ${index + 1}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primary,
-                  ),
-                ),
-                backgroundColor: Colors.white,
-                side: BorderSide(
-                  color: AppTheme.primary.withValues(alpha: 0.3),
-                ),
-                onPressed: () => _openPermit(context, path),
-              );
-            }).toList(growable: false),
+            children: delivery.permits
+                .asMap()
+                .entries
+                .map((entry) {
+                  final index = entry.key;
+                  final path = entry.value;
+                  final fileName = path.split('/').last;
+                  return ActionChip(
+                    avatar: const Icon(
+                      Icons.picture_as_pdf_outlined,
+                      size: 16,
+                      color: AppTheme.primary,
+                    ),
+                    label: Text(
+                      fileName.isNotEmpty ? fileName : 'Permit ${index + 1}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                    backgroundColor: Colors.white,
+                    side: BorderSide(
+                      color: AppTheme.primary.withValues(alpha: 0.3),
+                    ),
+                    onPressed: () => _openPermit(context, path),
+                  );
+                })
+                .toList(growable: false),
           ),
         ],
       ),
@@ -391,18 +343,13 @@ class DeliveryCard extends StatelessWidget {
   Future<void> _openPermit(BuildContext context, String permitPath) async {
     try {
       final uri = resolveInvoiceUri(Environment.apiBaseUrl, permitPath);
-      final opened = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
+      await showDocumentPreview(
+        context,
+        title: permitPath.split('/').last.isEmpty
+            ? 'Permit'
+            : permitPath.split('/').last,
+        uri: uri,
       );
-      if (!opened && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open the permit file.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

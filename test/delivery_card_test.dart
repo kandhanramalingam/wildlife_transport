@@ -62,9 +62,7 @@ void main() {
     expect(find.text('Waiting for Loading Turn'), findsOneWidget);
   });
 
-  testWidgets('shows the authenticated driver name and status', (
-    tester,
-  ) async {
+  testWidgets('shows the authenticated driver name and status', (tester) async {
     final delivery = _delivery().copyWith(status: DeliveryStatus.inProgress);
     final assigned = DeliveryModel(
       id: delivery.id,
@@ -99,7 +97,7 @@ void main() {
     expect(find.textContaining('TRUCK-ONE'), findsNothing);
   });
 
-  testWidgets('renders partial delivery badge, pickup stops, and permits', (
+  testWidgets('hides partial badge and renders pickup stops and permits', (
     tester,
   ) async {
     final delivery = DeliveryModel(
@@ -126,11 +124,7 @@ void main() {
       multiPickupPointJob: true,
       pickupNotice: 'Check gate before loading',
       pickupStops: const [
-        PickupStop(
-          order: 1,
-          address: 'Farm Alpha',
-          lotNumbers: ['1', '2'],
-        ),
+        PickupStop(order: 1, address: 'Farm Alpha', lotNumbers: ['1', '2']),
       ],
       permits: const ['uploads/permits/permit-123.pdf'],
     );
@@ -149,8 +143,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Partial • 1/5 Lots Delivered'), findsOneWidget);
-    expect(find.text('Remaining Lots: 2, 3, 4, 5'), findsOneWidget);
+    expect(find.text('Partial • 1/5 Lots Delivered'), findsNothing);
+    expect(find.text('Remaining Lots: 2, 3, 4, 5'), findsNothing);
     expect(find.text('Pickup Stops (Multi-Pickup Trip)'), findsOneWidget);
     expect(find.text('Check gate before loading'), findsOneWidget);
     expect(find.text('Farm Alpha'), findsOneWidget);
@@ -158,7 +152,6 @@ void main() {
     expect(find.text('permit-123.pdf'), findsOneWidget);
   });
 }
-
 
 DeliveryModel _delivery({DeliveryStatus firstStatus = DeliveryStatus.pending}) {
   return DeliveryModel(

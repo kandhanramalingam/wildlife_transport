@@ -12,6 +12,7 @@ class ChecklistStep extends StatefulWidget {
 
 class _ChecklistStepState extends State<ChecklistStep>
     with AutomaticKeepAliveClientMixin<ChecklistStep> {
+  bool _showMissingReasons = false;
   final List<_CheckItem> _items = [
     _CheckItem('Check plotter in vehicle'),
     _CheckItem('Check odometer reading'),
@@ -53,6 +54,25 @@ class _ChecklistStepState extends State<ChecklistStep>
   bool get _allChecked => _items.every((item) => item.checked);
   bool get _canProceed => _items.every((item) => item.isValid);
 
+  void _handleNext() {
+    if (!_canProceed) {
+      setState(() => _showMissingReasons = true);
+      return;
+    }
+
+    widget.onNext(
+      _items
+          .map(
+            (item) => DeliveryChecklistItem(
+              item: item.title,
+              checked: item.checked,
+              reason: item.checked ? null : item.reason.trim(),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
   @override
   bool get wantKeepAlive => true;
 
@@ -60,7 +80,9 @@ class _ChecklistStepState extends State<ChecklistStep>
   Widget build(BuildContext context) {
     super.build(context);
     final completedCount = _items.where((i) => i.checked).length;
-    final reasonedCount = _items.where((i) => !i.checked && i.reason.trim().isNotEmpty).length;
+    final reasonedCount = _items
+        .where((i) => !i.checked && i.reason.trim().isNotEmpty)
+        .length;
 
     return Column(
       children: [
@@ -120,7 +142,8 @@ class _ChecklistStepState extends State<ChecklistStep>
                   children: [
                     CheckboxListTile(
                       value: item.checked,
-                      onChanged: (v) => setState(() => item.checked = v ?? false),
+                      onChanged: (v) =>
+                          setState(() => item.checked = v ?? false),
                       title: Text(
                         item.title,
                         style: TextStyle(
@@ -141,7 +164,7 @@ class _ChecklistStepState extends State<ChecklistStep>
                         vertical: 0,
                       ),
                     ),
-                    if (!item.checked)
+                    if (_showMissingReasons && !item.checked)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(48, 0, 16, 8),
                         child: TextFormField(
@@ -189,7 +212,7 @@ class _ChecklistStepState extends State<ChecklistStep>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (!_canProceed)
+              if (_showMissingReasons && !_canProceed)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 6),
                   child: Text(
@@ -202,19 +225,7 @@ class _ChecklistStepState extends State<ChecklistStep>
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _canProceed
-                      ? () => widget.onNext(
-                          _items
-                              .map(
-                                (item) => DeliveryChecklistItem(
-                                  item: item.title,
-                                  checked: item.checked,
-                                  reason: item.checked ? null : item.reason.trim(),
-                                ),
-                              )
-                              .toList(growable: false),
-                        )
-                      : null,
+                  onPressed: _handleNext,
                   child: const Text('Next'),
                 ),
               ),

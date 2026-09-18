@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/environment.dart';
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/document_preview.dart';
 import '../../delivery/screens/trip_customers_screen.dart';
 import '../models/driver_profile.dart';
 import '../presentation/profile_controller.dart';
@@ -454,18 +454,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _openDocument(String path) async {
     try {
       final uri = resolveInvoiceUri(Environment.apiBaseUrl, path);
-      final opened = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
+      await showDocumentPreview(
+        context,
+        title: path.split('/').last.isEmpty ? 'Document' : path.split('/').last,
+        uri: uri,
       );
-      if (!opened && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open document.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

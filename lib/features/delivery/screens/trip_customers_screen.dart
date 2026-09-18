@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/environment.dart';
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/location/current_location.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/document_preview.dart';
 import '../domain/delivery_repository.dart';
 import '../models/delivery_model.dart';
 import '../models/location_tracking.dart';
@@ -210,11 +210,13 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
 
     try {
       final invoiceUri = resolveInvoiceUri(Environment.apiBaseUrl, invoicePath);
-      final opened = await launchUrl(
-        invoiceUri,
-        mode: LaunchMode.externalApplication,
+      await showDocumentPreview(
+        context,
+        title: invoicePath.split('/').last.isEmpty
+            ? 'Invoice'
+            : invoicePath.split('/').last,
+        uri: invoiceUri,
       );
-      if (!opened && mounted) _showInvoiceError();
     } catch (_) {
       if (mounted) _showInvoiceError();
     }
@@ -368,7 +370,10 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
           children: [
             if (widget.delivery.partialDelivery) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(8),
@@ -533,33 +538,37 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: widget.delivery.permits.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final path = entry.value;
-                  final fileName = path.split('/').last;
-                  return ActionChip(
-                    avatar: const Icon(
-                      Icons.picture_as_pdf_outlined,
-                      size: 16,
-                      color: AppTheme.primary,
-                    ),
-                    label: Text(
-                      fileName.isNotEmpty
-                          ? 'Permit ${index + 1}'
-                          : 'Permit ${index + 1}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                    backgroundColor: Colors.white,
-                    side: BorderSide(
-                      color: AppTheme.primary.withValues(alpha: 0.3),
-                    ),
-                    onPressed: () => _openPermit(path),
-                  );
-                }).toList(growable: false),
+                children: widget.delivery.permits
+                    .asMap()
+                    .entries
+                    .map((entry) {
+                      final index = entry.key;
+                      final path = entry.value;
+                      final fileName = path.split('/').last;
+                      return ActionChip(
+                        avatar: const Icon(
+                          Icons.picture_as_pdf_outlined,
+                          size: 16,
+                          color: AppTheme.primary,
+                        ),
+                        label: Text(
+                          fileName.isNotEmpty
+                              ? 'Permit ${index + 1}'
+                              : 'Permit ${index + 1}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primary,
+                          ),
+                        ),
+                        backgroundColor: Colors.white,
+                        side: BorderSide(
+                          color: AppTheme.primary.withValues(alpha: 0.3),
+                        ),
+                        onPressed: () => _openPermit(path),
+                      );
+                    })
+                    .toList(growable: false),
               ),
             ],
             if (widget.delivery.hasLoadingMedia) ...[
@@ -598,13 +607,13 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
   Future<void> _openPermit(String permitPath) async {
     try {
       final uri = resolveInvoiceUri(Environment.apiBaseUrl, permitPath);
-      final opened = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
+      await showDocumentPreview(
+        context,
+        title: permitPath.split('/').last.isEmpty
+            ? 'Permit'
+            : permitPath.split('/').last,
+        uri: uri,
       );
-      if (!opened && mounted) {
-        _showError('Could not open the permit file.');
-      }
     } catch (_) {
       if (mounted) {
         _showError('Could not open the permit file.');
