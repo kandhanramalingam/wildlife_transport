@@ -136,18 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               counterText: '',
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Mobile number is required';
-              }
-              if (value.length != 10) {
-                return 'Enter a valid 10-digit mobile number';
-              }
-              if (!RegExp(r'^[6-9]\d{9}$').hasMatch(value)) {
-                return 'Enter a valid mobile number';
-              }
-              return null;
-            },
+            validator: validateMobileNumber,
           ),
           const SizedBox(height: 20),
           const Text(
@@ -210,4 +199,13 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+String? validateMobileNumber(String? value) {
+  final phone = value?.trim() ?? '';
+  if (phone.isEmpty) return 'Mobile number is required';
+  if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
+    return 'Enter a valid 10-digit mobile number';
+  }
+  return null;
 }

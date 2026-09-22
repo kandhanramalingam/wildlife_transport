@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 class PlatformDocumentPreview extends StatelessWidget {
   final Uri uri;
@@ -29,6 +30,16 @@ class PlatformDocumentPreview extends StatelessWidget {
                 : const Center(child: CircularProgressIndicator()),
             errorBuilder: (_, _, _) => const _PreviewError(),
           ),
+        ),
+      );
+    }
+
+    if (uri.path.toLowerCase().endsWith('.pdf')) {
+      return PdfViewer.uri(
+        uri,
+        params: PdfViewerParams(
+          errorBannerBuilder: (context, error, stackTrace, documentRef) =>
+              const _PreviewError(message: 'Could not load this PDF.'),
         ),
       );
     }

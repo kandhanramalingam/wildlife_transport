@@ -1,12 +1,16 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../../../../core/config/environment.dart';
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/document_preview.dart';
 import '../../domain/delivery_repository.dart';
 import '../../models/delivery_model.dart';
 import '../../models/start_delivery_submission.dart';
+import '../customer_directions_screen.dart';
+import '../trip_customers_screen.dart' show resolveInvoiceUri;
 import 'steps/photos_step.dart';
 import 'steps/checklist_step.dart';
 import 'steps/game_loading_checklist_step.dart';
@@ -17,11 +21,15 @@ enum DeliveryWorkflow { startTrip, arrival }
 class StartDeliveryScreen extends StatefulWidget {
   final DeliveryModel delivery;
   final DeliveryWorkflow workflow;
+  final String destinationLatitude;
+  final String destinationLongitude;
 
   const StartDeliveryScreen({
     super.key,
     required this.delivery,
     this.workflow = DeliveryWorkflow.startTrip,
+    this.destinationLatitude = '',
+    this.destinationLongitude = '',
   });
 
   @override
@@ -30,17 +38,12 @@ class StartDeliveryScreen extends StatefulWidget {
 
 class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
   final PageController _pageController = PageController();
-  late final DeliveryRepository _repository;
+  late final DeliveryRepository _repository =
+      AppDependencies.createDeliveryRepository();
   int _currentStep = 0;
   PhotosStepData? _photos;
   List<DeliveryChecklistItem>? _vehicleChecklist;
   List<DeliveryChecklistItem>? _gameLoadingChecklist;
-
-  @override
-  void initState() {
-    super.initState();
-    _repository = AppDependencies.createDeliveryRepository();
-  }
 
   bool get _isArrival => widget.workflow == DeliveryWorkflow.arrival;
 
@@ -92,53 +95,167 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
         children: [
           _buildStepper(),
           Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
+            child: Stack(
               children: [
-                if (!_isArrival)
-                  ChecklistStep(
-                    onNext: (items) {
-                      _vehicleChecklist = items;
-                      _goNext();
-                    },
+                Positioned.fill(
+                  top: _isArrival ? 68 : 0,
+                  child: PageView(
+                    controller: _pageController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      if (!_isArrival)
+                        ChecklistStep(
+                          onNext: (items) {
+                            _vehicleChecklist = items;
+                            _goNext();
+                          },
+                        ),
+                      GameLoadingChecklistStep(
+                        onNext: (items) {
+                          _gameLoadingChecklist = items;
+                          _goNext();
+                        },
+                        isOffLoading: _isArrival,
+                      ),
+                      PhotosStep(
+                        onNext: (data) {
+                          _photos = data;
+                          _goNext();
+                        },
+                        includeVehicleDetails: true,
+                        includeVehiclePhotos: !_isArrival,
+                        includeAnimalPhotos: true,
+                        requireLocation: !_isArrival,
+                        isOffLoading: _isArrival,
+                      ),
+                      SignatureStep(
+                        onStartTrip: _finishWorkflow,
+                        buttonLabel: _isArrival
+                            ? 'Complete Off-loading'
+                            : 'Complete Loading',
+                        offLoadingSignatures: _isArrival,
+                        requireOtherSignature: !_isArrival,
+                        description: _isArrival
+                            ? 'The client must sign to confirm the animals’ health and quantities.'
+                            : 'Obtain signatures from both officers to complete this lot’s loading.',
+                        incompleteMessage: _isArrival
+                            ? 'The client signature is required to complete off-loading'
+                            : 'Both signatures are required to complete loading',
+                      ),
+                    ],
                   ),
-                GameLoadingChecklistStep(
-                  onNext: (items) {
-                    _gameLoadingChecklist = items;
-                    _goNext();
-                  },
-                  isOffLoading: _isArrival,
                 ),
-                PhotosStep(
-                  onNext: (data) {
-                    _photos = data;
-                    _goNext();
-                  },
-                  includeVehicleDetails: true,
-                  includeVehiclePhotos: !_isArrival,
-                  includeAnimalPhotos: true,
-                  requireLocation: !_isArrival,
-                  isOffLoading: _isArrival,
-                ),
-                SignatureStep(
-                  onStartTrip: _finishWorkflow,
-                  buttonLabel: _isArrival
-                      ? 'Complete Off-loading'
-                      : 'Complete Loading',
-                  offLoadingSignatures: _isArrival,
-                  requireOtherSignature: !_isArrival,
-                  description: _isArrival
-                      ? 'The client must sign to confirm the animals’ health and quantities.'
-                      : 'Obtain signatures from both officers to complete this lot’s loading.',
-                  incompleteMessage: _isArrival
-                      ? 'The client signature is required to complete off-loading'
-                      : 'Both signatures are required to complete loading',
-                ),
+                if (_isArrival)
+                  Positioned(top: 8, right: 16, child: _buildQuickActions()),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FloatingActionButton.small(
+          heroTag: null,
+          tooltip: 'View invoice PDF',
+          onPressed: _openInvoice,
+          child: const Icon(Icons.picture_as_pdf_outlined),
+        ),
+        const SizedBox(width: 10),
+        FloatingActionButton.small(
+          heroTag: null,
+          tooltip: 'View permits',
+          onPressed: _openPermits,
+          child: const Icon(Icons.description_outlined),
+        ),
+        const SizedBox(width: 10),
+        FloatingActionButton.small(
+          heroTag: null,
+          tooltip: 'Open navigation',
+          onPressed: _openNavigation,
+          child: const Icon(Icons.directions_outlined),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openInvoice() async {
+    final path = widget.delivery.invoicePath?.trim() ?? '';
+    if (path.isEmpty) {
+      _showError('Invoice PDF is not available for this customer.');
+      return;
+    }
+    await _openDocument(path, 'Invoice');
+  }
+
+  Future<void> _openPermits() async {
+    final permits = widget.delivery.permits;
+    if (permits.isEmpty) {
+      _showError('No permits are available for this trip.');
+      return;
+    }
+    if (permits.length == 1) {
+      await _openDocument(permits.first, 'Permit');
+      return;
+    }
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (var index = 0; index < permits.length; index++)
+              ListTile(
+                leading: const Icon(Icons.description_outlined),
+                title: Text('Permit ${index + 1}'),
+                onTap: () => Navigator.of(sheetContext).pop(permits[index]),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) await _openDocument(selected, 'Permit');
+  }
+
+  Future<void> _openDocument(String path, String fallbackTitle) async {
+    try {
+      final uri = resolveInvoiceUri(Environment.apiBaseUrl, path);
+      await showDocumentPreview(
+        context,
+        title: uri.pathSegments.lastOrNull?.isNotEmpty == true
+            ? uri.pathSegments.last
+            : fallbackTitle,
+        uri: uri,
+      );
+    } catch (_) {
+      if (mounted) {
+        _showError('Could not open the ${fallbackTitle.toLowerCase()}.');
+      }
+    }
+  }
+
+  Future<void> _openNavigation() async {
+    final latitude = double.tryParse(widget.destinationLatitude.trim());
+    final longitude = double.tryParse(widget.destinationLongitude.trim());
+    if (latitude == null ||
+        longitude == null ||
+        !latitude.isFinite ||
+        !longitude.isFinite ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180) {
+      _showError('Customer latitude and longitude are unavailable.');
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            CustomerDirectionsScreen(latitude: latitude, longitude: longitude),
       ),
     );
   }

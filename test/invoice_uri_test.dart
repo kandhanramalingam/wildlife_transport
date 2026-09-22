@@ -50,4 +50,29 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('hides trip partial progress but keeps permits visible', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripCustomersScreen(
+          delivery: DeliveryModel(
+            id: 'delivery-1',
+            dateTime: DateTime(2026, 8, 15),
+            clientName: 'Johan du Toit',
+            clientAddress: 'Delivery address',
+            partialDelivery: true,
+            totalLots: 2,
+            balanceLots: 2,
+            permits: const ['uploads/permits/permit-1.pdf'],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Permits (1)'), findsOneWidget);
+    expect(find.text('Partial • 0/2 Lots Delivered'), findsNothing);
+    expect(find.text('Remaining Lots: 2'), findsNothing);
+  });
 }

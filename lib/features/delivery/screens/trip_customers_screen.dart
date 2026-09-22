@@ -161,6 +161,8 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
       clientAddress: customer.address,
       status: DeliveryStatus.inProgress,
       paymentStatus: widget.delivery.paymentStatus,
+      invoicePath: customer.invoicePath,
+      permits: widget.delivery.permits,
       assignment: customer.assignment ?? widget.delivery.assignment,
     );
     final completed = await Navigator.of(context).push<bool>(
@@ -168,6 +170,8 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
         builder: (_) => StartDeliveryScreen(
           delivery: customerDelivery,
           workflow: DeliveryWorkflow.arrival,
+          destinationLatitude: customer.latitude,
+          destinationLongitude: customer.longitude,
         ),
       ),
     );
@@ -331,9 +335,7 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
-        if (widget.delivery.partialDelivery ||
-            widget.delivery.isMultiPickup ||
-            widget.delivery.permits.isNotEmpty)
+        if (widget.delivery.isMultiPickup || widget.delivery.permits.isNotEmpty)
           _buildTripOverviewHeader(),
         ..._customers.map((customer) {
           final isActive = _activeCustomerDeliveryId == customer.deliveryId;
@@ -368,65 +370,6 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (widget.delivery.partialDelivery) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade600, width: 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.pie_chart_outline,
-                          size: 15,
-                          color: Colors.amber.shade900,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Partial • ${widget.delivery.deliveredLots}/${widget.delivery.totalLots} Lots Delivered',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.amber.shade900,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (widget.delivery.balanceLotNumbers.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        'Remaining Lots: ${widget.delivery.balanceLotNumbers.join(', ')}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.amber.shade900,
-                        ),
-                      ),
-                    ] else if (widget.delivery.balanceLots > 0) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        'Remaining Lots: ${widget.delivery.balanceLots}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.amber.shade900,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
             if (widget.delivery.isMultiPickup) ...[
               const Row(
                 children: [
