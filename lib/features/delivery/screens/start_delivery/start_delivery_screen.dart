@@ -1,16 +1,15 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import '../../../../core/config/environment.dart';
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/document_preview.dart';
 import '../../domain/delivery_repository.dart';
 import '../../models/delivery_model.dart';
 import '../../models/start_delivery_submission.dart';
+import '../../offline/offloading_sync_service.dart';
 import '../customer_directions_screen.dart';
-import '../trip_customers_screen.dart' show resolveInvoiceUri;
+import '../../widgets/trip_document_actions.dart';
 import 'steps/photos_step.dart';
 import 'steps/checklist_step.dart';
 import 'steps/game_loading_checklist_step.dart';
@@ -98,7 +97,6 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
             child: Stack(
               children: [
                 Positioned.fill(
-                  top: _isArrival ? 68 : 0,
                   child: PageView(
                     controller: _pageController,
                     physics: const NeverScrollableScrollPhysics(),
@@ -127,6 +125,13 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
                         includeAnimalPhotos: true,
                         requireLocation: !_isArrival,
                         isOffLoading: _isArrival,
+                        // Per-lot animal evidence belongs to the trip-loading
+                        // flow. Off-loading already runs once per customer
+                        // delivery and its API accepts one animal video.
+                        lotNumbers: _isArrival
+                            ? const []
+                            : widget.delivery.assignment?.allLotNumbers ??
+                                  const [],
                       ),
                       SignatureStep(
                         onStartTrip: _finishWorkflow,
@@ -145,97 +150,43 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
                     ],
                   ),
                 ),
-                if (_isArrival)
-                  Positioned(top: 8, right: 16, child: _buildQuickActions()),
               ],
             ),
           ),
         ],
       ),
+      bottomNavigationBar: _isArrival ? _buildQuickActions() : null,
     );
   }
 
   Widget _buildQuickActions() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        FloatingActionButton.small(
-          heroTag: null,
-          tooltip: 'View invoice PDF',
-          onPressed: _openInvoice,
-          child: const Icon(Icons.picture_as_pdf_outlined),
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
         ),
-        const SizedBox(width: 10),
-        FloatingActionButton.small(
-          heroTag: null,
-          tooltip: 'View permits',
-          onPressed: _openPermits,
-          child: const Icon(Icons.description_outlined),
-        ),
-        const SizedBox(width: 10),
-        FloatingActionButton.small(
-          heroTag: null,
-          tooltip: 'Open navigation',
-          onPressed: _openNavigation,
-          child: const Icon(Icons.directions_outlined),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _openInvoice() async {
-    final path = widget.delivery.invoicePath?.trim() ?? '';
-    if (path.isEmpty) {
-      _showError('Invoice PDF is not available for this customer.');
-      return;
-    }
-    await _openDocument(path, 'Invoice');
-  }
-
-  Future<void> _openPermits() async {
-    final permits = widget.delivery.permits;
-    if (permits.isEmpty) {
-      _showError('No permits are available for this trip.');
-      return;
-    }
-    if (permits.length == 1) {
-      await _openDocument(permits.first, 'Permit');
-      return;
-    }
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
+        child: Row(
           children: [
-            for (var index = 0; index < permits.length; index++)
-              ListTile(
-                leading: const Icon(Icons.description_outlined),
-                title: Text('Permit ${index + 1}'),
-                onTap: () => Navigator.of(sheetContext).pop(permits[index]),
+            Expanded(
+              child: TripDocumentActions(
+                invoicePath: widget.delivery.invoicePath,
+                permits: widget.delivery.permits,
+                maps: widget.delivery.maps,
+                showHeading: false,
               ),
+            ),
+            IconButton.filled(
+              tooltip: 'Open navigation',
+              onPressed: _openNavigation,
+              icon: const Icon(Icons.navigation_outlined),
+            ),
           ],
         ),
       ),
     );
-    if (selected != null && mounted) await _openDocument(selected, 'Permit');
-  }
-
-  Future<void> _openDocument(String path, String fallbackTitle) async {
-    try {
-      final uri = resolveInvoiceUri(Environment.apiBaseUrl, path);
-      await showDocumentPreview(
-        context,
-        title: uri.pathSegments.lastOrNull?.isNotEmpty == true
-            ? uri.pathSegments.last
-            : fallbackTitle,
-        uri: uri,
-      );
-    } catch (_) {
-      if (mounted) {
-        _showError('Could not open the ${fallbackTitle.toLowerCase()}.');
-      }
-    }
   }
 
   Future<void> _openNavigation() async {
@@ -278,19 +229,41 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
         return;
       }
       try {
-        await _repository.completeOffloading(
-          widget.delivery.id,
-          CompleteOffloadingSubmission(
+        final result = await AppDependencies.offloadingSyncService.submit(
+          deliveryId: widget.delivery.id,
+          vehicleId: widget.delivery.assignedVehicleId,
+          submission: CompleteOffloadingSubmission(
             endAnimalPhotos: photos.animalPhotos,
-            endAnimalVideos: photos.animalVideo,
+            endAnimalVideos: photos.animalVideos.first,
             offLoadChecklist: offLoadChecklist,
             clientSignature: managerSignature,
             endOdometerReading: photos.odometerReading!,
             buyerId: buyerId,
             clientComment: clientComment,
           ),
-          vehicleId: widget.delivery.assignedVehicleId,
         );
+        if (!mounted) return;
+        if (result == OffloadingSubmitResult.queued) {
+          await showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              icon: const Icon(Icons.cloud_off_outlined),
+              title: const Text('Off-loading saved — awaiting sync'),
+              content: const Text(
+                'All photos, video, checklist and signature are safely saved '
+                'on this device. The portal will update after the server '
+                'accepts the submission. The app will retry automatically.',
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Continue'),
+                ),
+              ],
+            ),
+          );
+        }
         if (mounted) Navigator.of(context).pop(true);
       } on Failure catch (failure) {
         _showError(failure.message);
@@ -319,7 +292,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
           startOdometerReading: photos.odometerReading!,
           startVehiclePhotos: photos.vehiclePhotos,
           startAnimalPhotos: photos.animalPhotos,
-          onLoadAnimalsVideo: photos.animalVideo,
+          onLoadAnimalsVideos: photos.animalVideos,
           startLatitude: photos.latitude,
           startLongitude: photos.longitude,
           vehicleChecklist: vehicleChecklist,

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../delivery/screens/delivery_screen.dart';
 import '../profile/screens/profile_screen.dart';
 import '../../core/location/tracking_status_banner.dart';
-import '../../core/location/home_permissions.dart';
+import '../delivery/widgets/offloading_sync_banner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,19 +17,12 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = const [DeliveryScreen(), ProfileScreen()];
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) checkHomePermissions(context);
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
           const TrackingStatusBanner(),
+          const OffloadingSyncBanner(),
           Expanded(
             child: IndexedStack(index: _currentIndex, children: _screens),
           ),

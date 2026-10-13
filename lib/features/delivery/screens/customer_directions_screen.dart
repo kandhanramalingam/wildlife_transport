@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/di/app_dependencies.dart';
+import '../../../core/location/home_permissions.dart';
 import '../../../core/maps/delivery_google_map.dart';
 import '../models/driving_route.dart';
 import '../presentation/customer_navigation_controller.dart';
@@ -56,7 +57,18 @@ class _CustomerDirectionsScreenState extends State<CustomerDirectionsScreen> {
           },
         );
     _navigation.addListener(_changed);
-    _navigation.refresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshRoute());
+  }
+
+  Future<void> _refreshRoute() async {
+    if (widget.controller == null) {
+      final allowed = await requestLocationAccess(
+        context,
+        LocationPermissionPurpose.navigation,
+      );
+      if (!allowed || !mounted) return;
+    }
+    await _navigation.refresh();
   }
 
   void _changed() {
@@ -192,7 +204,7 @@ class _CustomerDirectionsScreenState extends State<CustomerDirectionsScreen> {
         title: const Text('Customer Directions'),
         actions: [
           IconButton(
-            onPressed: nav.loading ? null : nav.refresh,
+            onPressed: nav.loading ? null : _refreshRoute,
             tooltip: 'Refresh route from current location',
             icon: const Icon(Icons.refresh),
           ),
@@ -263,7 +275,7 @@ class _CustomerDirectionsScreenState extends State<CustomerDirectionsScreen> {
                           ),
                         ),
                         TextButton(
-                          onPressed: nav.loading ? null : nav.refresh,
+                          onPressed: nav.loading ? null : _refreshRoute,
                           child: const Text('Retry'),
                         ),
                       ],

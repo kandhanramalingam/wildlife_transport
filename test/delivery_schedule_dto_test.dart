@@ -35,6 +35,77 @@ void main() {
     expect(DeliveryStatus.fromApi(dto.deliveryStatus), DeliveryStatus.pending);
   });
 
+  test('maps top-level trip lots into the fallback driver assignment', () {
+    final dto = DeliveryScheduleDto.fromJson({
+      '_id': '6abbd332fa1cb4a99537a7a1',
+      'buyerId': '7114',
+      'buyerName': 'Johan du Toit',
+      'address': 'Vaalwater',
+      'auctionId': '300',
+      'scheduleDate': '2026-09-29T15:04:00.000Z',
+      'deliveryStatus': 'offloading_started',
+      'vehicleId': '67cc039e2f924dca2b17b4c4',
+      'driverDetails': {
+        '_id': '6a9546fa09ae0b475270b074',
+        'name': 'Shephard Sitole2',
+      },
+      'lotNumbers': ['05-A103', '09-A104'],
+      'loadedLotNumbers': ['05-A103'],
+      'deliveredLotNumbers': [],
+      'lots': [
+        {
+          'lotNo': '05-A103',
+          'description': '4 x Golden Gnu Cows',
+          'quantity': 4,
+          'status': 'Sold',
+          'comment': 'Lot1 Careful',
+        },
+        {
+          'lotNo': '09-A104',
+          'description': 'Springbuck Ram',
+          'quantity': 1,
+          'status': 'Sold',
+          'comment': 'Lot2 Careful',
+        },
+      ],
+    });
+
+    expect(dto.assignment, isNotNull);
+    expect(dto.assignment!.lotNumbers, ['05-A103', '09-A104']);
+    expect(dto.assignment!.loadedLotNumbers, ['05-A103']);
+    expect(dto.lotDetails.map((lot) => lot.lotNumber), ['05-A103', '09-A104']);
+    expect(dto.lotDetails.first.comment, 'Lot1 Careful');
+  });
+
+  test('parses lot-linked loading photo and video metadata', () {
+    final dto = DeliveryScheduleDto.fromJson({
+      '_id': 'schedule-media',
+      'buyerId': 'buyer-1',
+      'buyerName': 'Buyer Name',
+      'address': 'Delivery address',
+      'auctionId': 'auction-1',
+      'scheduleDate': '2026-09-29T15:04:00.000Z',
+      'deliveryStatus': 'in_delivery',
+      'startMediaMetadata': [
+        {
+          'filePath': 'uploads/images/lot-101.jpg',
+          'kind': 'animal_photo',
+          'lotNumber': '101',
+        },
+        {
+          'filePath': 'uploads/videos/lot-101.mp4',
+          'kind': 'animal_video',
+          'lotNumber': '101',
+        },
+      ],
+    });
+
+    expect(dto.startMediaMetadata, hasLength(2));
+    expect(dto.startMediaMetadata.first.filePath, 'uploads/images/lot-101.jpg');
+    expect(dto.startMediaMetadata.first.lotNumber, '101');
+    expect(dto.startMediaMetadata.last.kind, 'animal_video');
+  });
+
   test('parses separate invoice paths for combined deliveries', () {
     final dto = DeliveryScheduleDto.fromJson({
       '_id': 'main-delivery',
@@ -352,81 +423,106 @@ void main() {
     },
   );
 
-  test('parses lotNumbers, multiPickupPointJob, pickupStops, partialDelivery, and permits', () {
-    final dto = DeliveryScheduleDto.fromJson({
-      '_id': 'delivery-multi',
-      'buyerId': 'buyer-1',
-      'buyerName': 'John Doe',
-      'address': 'Farm 1',
-      'auctionId': 'auc-1',
-      'scheduleDate': '2026-09-15T10:00:00.000Z',
-      'deliveryStatus': 'in_delivery',
-      'paymentStatus': true,
-      'multiPickupPointJob': true,
-      'multiplePickupPoint': true,
-      'pickupNotice': 'Multi pickup point job — collect from 2 stops',
-      'pickupStops': [
-        {
-          'order': 2,
-          'address': 'Boma B',
-          'lotNumbers': ['3', '4'],
-        },
-        {
-          'order': 1,
-          'address': 'Boma A',
-          'lotNumbers': ['1', '2'],
-        },
-      ],
-      'vehicleLotTotal': 5,
-      'totalLots': 5,
-      'assignedLots': 4,
-      'deliveredLots': 1,
-      'balanceLots': 4,
-      'balanceLotNumbers': ['2', '3', '4', '5'],
-      'partialDelivery': true,
-      'permits': [
+  test(
+    'parses lotNumbers, multiPickupPointJob, pickupStops, partialDelivery, and permits',
+    () {
+      final dto = DeliveryScheduleDto.fromJson({
+        '_id': 'delivery-multi',
+        'buyerId': 'buyer-1',
+        'buyerName': 'John Doe',
+        'address': 'Farm 1',
+        'auctionId': 'auc-1',
+        'scheduleDate': '2026-09-15T10:00:00.000Z',
+        'deliveryStatus': 'in_delivery',
+        'paymentStatus': true,
+        'multiPickupPointJob': true,
+        'multiplePickupPoint': true,
+        'pickupNotice': 'Multi pickup point job — collect from 2 stops',
+        'pickupStops': [
+          {
+            'order': 2,
+            'address': 'Boma B',
+            'lotNumbers': ['3', '4'],
+          },
+          {
+            'order': 1,
+            'address': 'Boma A',
+            'lotNumbers': ['1', '2'],
+          },
+        ],
+        'vehicleLotTotal': 5,
+        'totalLots': 5,
+        'assignedLots': 4,
+        'deliveredLots': 1,
+        'balanceLots': 4,
+        'balanceLotNumbers': ['2', '3', '4', '5'],
+        'partialDelivery': true,
+        'lots': [
+          {
+            'lotNo': '1',
+            'description': 'Blue wildebeest',
+            'quantity': 2,
+            'status': 'Sold',
+            'comment': 'Fragile horns',
+          },
+          {
+            'lotNo': '2',
+            'description': 'Impala',
+            'quantity': 4,
+            'status': 'Sold',
+          },
+        ],
+        'permits': [
+          'uploads/permits/permit-1.pdf',
+          'uploads/permits/permit-2.pdf',
+        ],
+        'maps': ['uploads/maps/delivery-map.png'],
+        'assignments': [
+          {
+            'vehicleId': 'veh-1',
+            'driverId': 'drv-1',
+            'status': 'in_delivery',
+            'lotNumbers': ['1', '2', '3', '4'],
+            'loadedLotNumbers': ['1', '2'],
+          },
+        ],
+      });
+
+      expect(dto.multiPickupPointJob, isTrue);
+      expect(dto.multiplePickupPoint, isTrue);
+      expect(dto.pickupNotice, 'Multi pickup point job — collect from 2 stops');
+      expect(dto.pickupStops.length, 2);
+      expect(dto.pickupStops[0].order, 1);
+      expect(dto.pickupStops[0].address, 'Boma A');
+      expect(dto.pickupStops[0].lotNumbers, ['1', '2']);
+      expect(dto.pickupStops[1].order, 2);
+      expect(dto.pickupStops[1].address, 'Boma B');
+      expect(dto.pickupStops[1].lotNumbers, ['3', '4']);
+
+      expect(dto.totalLots, 5);
+      expect(dto.vehicleLotTotal, 5);
+      expect(dto.assignedLots, 4);
+      expect(dto.deliveredLots, 1);
+      expect(dto.balanceLots, 4);
+      expect(dto.balanceLotNumbers, ['2', '3', '4', '5']);
+      expect(dto.partialDelivery, isTrue);
+      expect(dto.lotDetails.length, 2);
+      expect(dto.lotDetails.first.lotNumber, '1');
+      expect(dto.lotDetails.first.description, 'Blue wildebeest');
+      expect(dto.lotDetails.first.quantity, 2);
+      expect(dto.lotDetails.first.comment, 'Fragile horns');
+
+      expect(dto.permits, [
         'uploads/permits/permit-1.pdf',
         'uploads/permits/permit-2.pdf',
-      ],
-      'assignments': [
-        {
-          'vehicleId': 'veh-1',
-          'driverId': 'drv-1',
-          'status': 'in_delivery',
-          'lotNumbers': ['1', '2', '3', '4'],
-          'loadedLotNumbers': ['1', '2'],
-        },
-      ],
-    });
+      ]);
+      expect(dto.maps, ['uploads/maps/delivery-map.png']);
 
-    expect(dto.multiPickupPointJob, isTrue);
-    expect(dto.multiplePickupPoint, isTrue);
-    expect(dto.pickupNotice, 'Multi pickup point job — collect from 2 stops');
-    expect(dto.pickupStops.length, 2);
-    expect(dto.pickupStops[0].order, 1);
-    expect(dto.pickupStops[0].address, 'Boma A');
-    expect(dto.pickupStops[0].lotNumbers, ['1', '2']);
-    expect(dto.pickupStops[1].order, 2);
-    expect(dto.pickupStops[1].address, 'Boma B');
-    expect(dto.pickupStops[1].lotNumbers, ['3', '4']);
-
-    expect(dto.totalLots, 5);
-    expect(dto.vehicleLotTotal, 5);
-    expect(dto.assignedLots, 4);
-    expect(dto.deliveredLots, 1);
-    expect(dto.balanceLots, 4);
-    expect(dto.balanceLotNumbers, ['2', '3', '4', '5']);
-    expect(dto.partialDelivery, isTrue);
-
-    expect(dto.permits, [
-      'uploads/permits/permit-1.pdf',
-      'uploads/permits/permit-2.pdf',
-    ]);
-
-    expect(dto.assignments.length, 1);
-    expect(dto.assignments.first.lotNumbers, ['1', '2', '3', '4']);
-    expect(dto.assignments.first.loadedLotNumbers, ['1', '2']);
-  });
+      expect(dto.assignments.length, 1);
+      expect(dto.assignments.first.lotNumbers, ['1', '2', '3', '4']);
+      expect(dto.assignments.first.loadedLotNumbers, ['1', '2']);
+    },
+  );
 
   test('legacy records default missing fields to 0, empty list, and false', () {
     final dto = DeliveryScheduleDto.fromJson({
@@ -452,6 +548,7 @@ void main() {
     expect(dto.balanceLotNumbers, isEmpty);
     expect(dto.partialDelivery, isFalse);
     expect(dto.permits, isEmpty);
+    expect(dto.maps, isEmpty);
     expect(dto.assignments, isEmpty);
   });
 }

@@ -6,13 +6,15 @@ class PlatformDocumentPreview extends StatelessWidget {
 
   const PlatformDocumentPreview({super.key, required this.uri});
 
+  String get _documentName =>
+      (uri.queryParameters['name'] ?? uri.path).toLowerCase();
+
   bool get _isImage {
-    final path = uri.path.toLowerCase();
-    return path.endsWith('.png') ||
-        path.endsWith('.jpg') ||
-        path.endsWith('.jpeg') ||
-        path.endsWith('.gif') ||
-        path.endsWith('.webp');
+    return _documentName.endsWith('.png') ||
+        _documentName.endsWith('.jpg') ||
+        _documentName.endsWith('.jpeg') ||
+        _documentName.endsWith('.gif') ||
+        _documentName.endsWith('.webp');
   }
 
   @override
@@ -34,7 +36,7 @@ class PlatformDocumentPreview extends StatelessWidget {
       );
     }
 
-    if (uri.path.toLowerCase().endsWith('.pdf')) {
+    if (_documentName.endsWith('.pdf')) {
       return PdfViewer.uri(
         uri,
         params: PdfViewerParams(

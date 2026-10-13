@@ -7,6 +7,7 @@ import '../models/delivery_model.dart';
 
 class TodayDeliveriesController extends ChangeNotifier {
   final DeliveryRepository _repository;
+  final Set<String> Function() _pendingOffloadingIds;
   CancelToken? _cancelToken;
 
   bool isLoading = false;
@@ -14,7 +15,12 @@ class TodayDeliveriesController extends ChangeNotifier {
   String? errorMessage;
   List<DeliveryModel> deliveries = const [];
 
-  TodayDeliveriesController(this._repository);
+  TodayDeliveriesController(
+    this._repository, {
+    Set<String> Function()? pendingOffloadingIds,
+  }) : _pendingOffloadingIds = pendingOffloadingIds ?? _noPendingOffloading;
+
+  static Set<String> _noPendingOffloading() => const {};
 
   Future<void> load() async {
     _cancelToken?.cancel('Schedule refreshed');
@@ -30,7 +36,7 @@ class TodayDeliveriesController extends ChangeNotifier {
         cancelToken: cancelToken,
       );
       if (_cancelToken != cancelToken) return;
-      deliveries = result;
+      deliveries = _withPendingOffloading(result, _pendingOffloadingIds());
     } on UnauthorizedFailure catch (failure) {
       if (_cancelToken != cancelToken) return;
       requiresLogin = true;
@@ -49,6 +55,45 @@ class TodayDeliveriesController extends ChangeNotifier {
 
   void markTripStarted(String deliveryId) {
     _updateStatus(deliveryId, DeliveryStatus.inProgress);
+  }
+
+  void applyPendingOffloading(Set<String> pendingIds) {
+    final updated = _withPendingOffloading(deliveries, pendingIds);
+    if (identical(updated, deliveries)) return;
+    deliveries = updated;
+    notifyListeners();
+  }
+
+  List<DeliveryModel> _withPendingOffloading(
+    List<DeliveryModel> source,
+    Set<String> pendingIds,
+  ) {
+    var changed = false;
+    final updated = source
+        .map((delivery) {
+          var deliveryChanged = false;
+          final lots = delivery.lots
+              .map((lot) {
+                final pending = pendingIds.contains(lot.deliveryId);
+                if (pending == lot.offloadingSyncPending) {
+                  return lot;
+                }
+                changed = true;
+                deliveryChanged = true;
+                return lot.copyWith(offloadingSyncPending: pending);
+              })
+              .toList(growable: false);
+          final pending = pendingIds.contains(delivery.id);
+          if (pending != delivery.offloadingSyncPending) {
+            changed = true;
+            deliveryChanged = true;
+          }
+          return deliveryChanged
+              ? delivery.copyWith(lots: lots, offloadingSyncPending: pending)
+              : delivery;
+        })
+        .toList(growable: false);
+    return changed ? List.unmodifiable(updated) : source;
   }
 
   void markLotLoadingStarted(String deliveryId, String lotDeliveryId) {

@@ -1,24 +1,55 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 
-/// Checks on entry to the home page without starting location tracking.
+bool _permissionCheckInProgress = false;
+
+enum LocationPermissionPurpose {
+  delivery,
+  navigation,
+  customerLocation,
+  deliveryEvidence,
+  activeTracking,
+}
+
+extension on LocationPermissionPurpose {
+  String get explanation => switch (this) {
+    LocationPermissionPurpose.delivery =>
+      'AWA Transport uses your location for delivery navigation, evidence, and active-trip tracking.',
+    LocationPermissionPurpose.navigation =>
+      'Allow location access to calculate a route from your current position and provide live navigation.',
+    LocationPermissionPurpose.customerLocation =>
+      'Allow location access to save and confirm the customer delivery point.',
+    LocationPermissionPurpose.deliveryEvidence =>
+      'Allow location access to attach the capture position to delivery photos and videos.',
+    LocationPermissionPurpose.activeTracking =>
+      'Allow location access so AWA Transport can record the driver position during an active delivery.',
+  };
+}
+
+/// Backward-compatible wrapper for callers that need general delivery access.
 Future<void> checkHomePermissions(BuildContext context) async {
+  await requestLocationAccess(context, LocationPermissionPurpose.delivery);
+}
+
+/// Requests foreground location from a visible, user-initiated screen.
+///
+/// Android supplies the correct system dialog for the installed OS version,
+/// including approximate/precise and one-time choices where supported.
+Future<bool> requestLocationAccess(
+  BuildContext context,
+  LocationPermissionPurpose purpose,
+) async {
+  if (_permissionCheckInProgress) return false;
+  _permissionCheckInProgress = true;
   try {
     final servicesEnabled = await Geolocator.isLocationServiceEnabled();
     var location = await Geolocator.checkPermission();
-    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    final notifications = android ? await Permission.notification.status : null;
     final locationMissing =
         location != LocationPermission.always &&
         location != LocationPermission.whileInUse;
-    final notificationsMissing =
-        notifications != null && !notifications.isGranted;
-    if (!context.mounted ||
-        (servicesEnabled && !locationMissing && !notificationsMissing)) {
-      return;
-    }
+    if (!context.mounted) return false;
+    if (servicesEnabled && !locationMissing) return true;
 
     final proceed = await showDialog<bool>(
       context: context,
@@ -28,17 +59,11 @@ Future<void> checkHomePermissions(BuildContext context) async {
         content: Text(
           [
             if (!servicesEnabled) 'Turn on location services on your device.',
-            if (locationMissing)
-              'Allow location access for navigation and active delivery tracking. '
-                  'During an active delivery, your location is recorded approximately '
-                  'every 30 minutes, including in the background on supported devices. '
-                  'Tracking stops when the final delivery is completed or you log out.',
+            if (locationMissing) purpose.explanation,
             if (location == LocationPermission.deniedForever)
               kIsWeb
                   ? 'Location is blocked. Allow it in your browser’s site settings.'
                   : 'Location is blocked. Enable it in the app’s device settings.',
-            if (notificationsMissing)
-              'Allow notifications to show when delivery tracking is running.',
           ].join('\n\n'),
         ),
         actions: [
@@ -53,19 +78,23 @@ Future<void> checkHomePermissions(BuildContext context) async {
         ],
       ),
     );
-    if (proceed != true || !context.mounted) return;
+    if (proceed != true || !context.mounted) return false;
 
-    if (!servicesEnabled && !kIsWeb) {
-      await Geolocator.openLocationSettings();
-      return;
+    if (!servicesEnabled) {
+      if (!kIsWeb) await Geolocator.openLocationSettings();
+      return false;
     }
     if (locationMissing) {
       if (location == LocationPermission.deniedForever) {
         if (!kIsWeb) await Geolocator.openAppSettings();
-        return;
+        return false;
       }
       location = await Geolocator.requestPermission();
-      if (!context.mounted) return;
+      if (!context.mounted) return false;
+      // Read the platform status again after Android closes its permission
+      // sheet. This avoids acting on a stale result on some devices.
+      location = await Geolocator.checkPermission();
+      if (!context.mounted) return false;
       if (location != LocationPermission.always &&
           location != LocationPermission.whileInUse) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -75,18 +104,12 @@ Future<void> checkHomePermissions(BuildContext context) async {
             ),
           ),
         );
+        return false;
       }
     }
-    if (!context.mounted) return;
-    if (notificationsMissing) {
-      if (notifications.isPermanentlyDenied) {
-        await Geolocator.openAppSettings();
-      } else {
-        await Permission.notification.request();
-      }
-    }
+    return true;
   } catch (_) {
-    if (!context.mounted) return;
+    if (!context.mounted) return false;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
@@ -94,5 +117,8 @@ Future<void> checkHomePermissions(BuildContext context) async {
         ),
       ),
     );
+    return false;
+  } finally {
+    _permissionCheckInProgress = false;
   }
 }

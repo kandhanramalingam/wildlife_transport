@@ -7,6 +7,24 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'Android while-in-use access supports the location foreground service',
+    () async {
+      final original = GeolocatorPlatform.instance;
+      final fake = _BrowserGeolocator();
+      GeolocatorPlatform.instance = fake;
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() {
+        GeolocatorPlatform.instance = original;
+        debugDefaultTargetPlatformOverride = null;
+      });
+
+      final source = GeolocatorTripPositionSource();
+      expect(await source.prepare(), isTrue);
+    },
+    skip: kIsWeb,
+  );
+
+  test(
     'browser tracking skips native permissions even on Android browsers',
     () async {
       final original = GeolocatorPlatform.instance;

@@ -6,12 +6,14 @@ class PhotoMeta {
   final DateTime dateTime;
   final double latitude;
   final double longitude;
+  final String? lotNumber;
 
   const PhotoMeta({
     required this.photo,
     required this.dateTime,
     required this.latitude,
     required this.longitude,
+    this.lotNumber,
   });
 
   String get location =>
@@ -23,5 +25,6 @@ class PhotoMeta {
     'capturedAt': dateTime.toUtc().toIso8601String(),
     'latitude': latitude,
     'longitude': longitude,
+    if (lotNumber?.trim().isNotEmpty == true) 'lotNumber': lotNumber!.trim(),
   };
 }

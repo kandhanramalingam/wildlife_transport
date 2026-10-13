@@ -4,6 +4,42 @@ import 'package:wildlife_transport/features/delivery/models/delivery_model.dart'
 import 'package:wildlife_transport/features/delivery/widgets/delivery_card.dart';
 
 void main() {
+  testWidgets(
+    'queued evidence is labelled awaiting sync rather than completed',
+    (tester) async {
+      final delivery = _delivery().copyWith(
+        status: DeliveryStatus.offloading,
+        lots: _delivery().lots
+            .map(
+              (lot) => lot.copyWith(
+                status: DeliveryStatus.offloading,
+                offloadingSyncPending: true,
+              ),
+            )
+            .toList(),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DeliveryCard(
+                delivery: delivery,
+                onStartLoading: (_) {},
+                onStartTrip: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Your status: Awaiting sync'), findsOneWidget);
+      expect(
+        find.text('0/2 Delivery Completed • Awaiting sync'),
+        findsOneWidget,
+      );
+      expect(find.text('Your status: Completed'), findsNothing);
+    },
+  );
+
   testWidgets('shows loading order and allows a pending lot to move earlier', (
     tester,
   ) async {
@@ -127,6 +163,28 @@ void main() {
         PickupStop(order: 1, address: 'Farm Alpha', lotNumbers: ['1', '2']),
       ],
       permits: const ['uploads/permits/permit-123.pdf'],
+      maps: const ['uploads/maps/map-123.png'],
+      lotDetails: const [
+        DeliveryLotDetails(
+          lotNumber: '11',
+          description: 'Blue wildebeest',
+          quantity: 2,
+          status: 'Sold',
+          comment: 'Fragile horns',
+        ),
+        DeliveryLotDetails(
+          lotNumber: '12',
+          description: 'Impala',
+          quantity: 4,
+          status: 'Sold',
+        ),
+      ],
+      invoicePath: 'uploads/invoices/invoice-123.pdf',
+      assignment: const DeliveryAssignment(
+        driverId: 'driver-1',
+        vehicleId: 'vehicle-1',
+        lotNumbers: ['11', '12'],
+      ),
     );
 
     await tester.pumpWidget(
@@ -149,7 +207,22 @@ void main() {
     expect(find.text('Check gate before loading'), findsOneWidget);
     expect(find.text('Farm Alpha'), findsOneWidget);
     expect(find.text('Permits (1)'), findsOneWidget);
-    expect(find.text('permit-123.pdf'), findsOneWidget);
+    expect(find.text('Permit'), findsNothing);
+    expect(find.text('permit-123.pdf'), findsNothing);
+    expect(find.text('Map'), findsOneWidget);
+    expect(find.text('Invoice'), findsOneWidget);
+    expect(find.text('Lots Details'), findsOneWidget);
+    expect(find.text('Lot 11'), findsOneWidget);
+    expect(find.text('Lot 12'), findsOneWidget);
+    expect(find.text('Fragile horns'), findsNothing);
+
+    await tester.tap(find.text('Lot 11'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lot 11'), findsNWidgets(2));
+    expect(find.text('Fragile horns'), findsOneWidget);
+    expect(find.textContaining('Blue wildebeest'), findsOneWidget);
+    expect(find.textContaining('Quantity: 2'), findsOneWidget);
   });
 }
 

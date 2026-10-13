@@ -47,7 +47,7 @@ class _UpcomingTabState extends State<UpcomingTab> {
   @override
   Widget build(BuildContext context) {
     final activeDeliveries = _controller.deliveries
-        .where((delivery) => !delivery.deliveryCompleted)
+        .where((delivery) => !delivery.completionSynced)
         .toList(growable: false);
 
     if (_controller.isLoading && activeDeliveries.isEmpty) {
@@ -151,8 +151,8 @@ class _UpcomingTabState extends State<UpcomingTab> {
       return;
     }
     if (!delivery.allLotsLoaded) return;
-    await showLocationTrackingDisclosure(context);
-    if (!mounted) return;
+    final locationAllowed = await requestActiveDeliveryTrackingAccess(context);
+    if (!locationAllowed || !mounted) return;
     try {
       final updated = await _repository.startTrip(
         delivery.id,
@@ -203,7 +203,11 @@ class _UpcomingTabState extends State<UpcomingTab> {
     _controller.updateLots(delivery.id, updatedLots);
     final allCompleted =
         updatedLots.isNotEmpty &&
-        updatedLots.every((lot) => lot.deliveryCompleted);
+        updatedLots.every(
+          (lot) =>
+              lot.status == DeliveryStatus.completed &&
+              !lot.offloadingSyncPending,
+        );
     if (allCompleted) {
       _controller.markDeliveryCompleted(delivery.id);
       unawaited(
@@ -223,7 +227,9 @@ class _UpcomingTabState extends State<UpcomingTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            allCompleted
+            updatedLots.any((lot) => lot.offloadingSyncPending)
+                ? 'Off-loading saved. Awaiting sync to portal.'
+                : allCompleted
                 ? 'Delivery completed successfully.'
                 : 'Customer delivery completed.',
           ),

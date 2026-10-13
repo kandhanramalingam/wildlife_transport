@@ -7,10 +7,14 @@ import '../../features/delivery/data/delivery_repository_impl.dart';
 import '../../features/delivery/domain/delivery_repository.dart';
 import '../../features/delivery/presentation/today_deliveries_controller.dart';
 import '../../features/delivery/presentation/upcoming_deliveries_controller.dart';
+import '../../features/delivery/offline/offloading_queue_store_factory.dart';
+import '../../features/delivery/offline/offloading_sync_service.dart';
+import '../../features/delivery/offline/delivery_status_queue_store.dart';
 import '../../features/profile/data/profile_remote_data_source.dart';
 import '../../features/profile/data/profile_repository_impl.dart';
 import '../../features/profile/presentation/profile_controller.dart';
 import '../network/api_client.dart';
+import '../connectivity/connectivity_monitor.dart';
 import '../location/location_queue_store.dart';
 import '../location/trip_location_tracker.dart';
 import '../storage/token_storage.dart';
@@ -27,6 +31,23 @@ class AppDependencies {
     createDeliveryRepository(),
     SharedPreferencesLocationQueueStore(),
   );
+  static final OffloadingSyncService offloadingSyncService =
+      OffloadingSyncService(
+        createDeliveryRepository,
+        createOffloadingQueueStore(),
+        DeviceConnectivityMonitor(),
+        statusStore: const SecureDeliveryStatusQueueStore(),
+        replayStatus: (job) async {
+          final repository = DeliveryRepositoryImpl(
+            DioDeliveryRemoteDataSource(apiClient.dio),
+          );
+          await repository.replayStatus(
+            job.deliveryId,
+            job.status,
+            vehicleId: job.vehicleId,
+          );
+        },
+      );
 
   static LoginController createLoginController() {
     final dataSource = DioAuthRemoteDataSource(apiClient.dio);
@@ -35,7 +56,10 @@ class AppDependencies {
   }
 
   static TodayDeliveriesController createTodayDeliveriesController() {
-    return TodayDeliveriesController(createDeliveryRepository());
+    return TodayDeliveriesController(
+      createDeliveryRepository(),
+      pendingOffloadingIds: () => offloadingSyncService.pendingDeliveryIds,
+    );
   }
 
   static UpcomingDeliveriesController createUpcomingDeliveriesController() {

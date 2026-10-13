@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/config/app_version.dart';
 import '../../../core/config/environment.dart';
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/document_preview.dart';
-import '../../delivery/screens/trip_customers_screen.dart';
 import '../models/driver_profile.dart';
 import '../presentation/profile_controller.dart';
 
@@ -127,6 +127,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ]),
             const SizedBox(height: 24),
+            const AppVersionLabel(),
+            const SizedBox(height: 12),
             _buildLogoutButton(),
           ],
         ),
@@ -378,6 +380,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _documentRow(
               icon: Icons.credit_card_outlined,
               label: "Driver's Licence",
+              previewTitle: 'Driving Licence',
               identifier: profile.licenceNumber,
               path: profile.licencePath,
             ),
@@ -390,6 +393,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _documentRow({
     required IconData icon,
     required String label,
+    String? previewTitle,
     String? identifier,
     String? path,
   }) {
@@ -427,7 +431,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         if (hasDocument)
           ElevatedButton.icon(
-            onPressed: () => _openDocument(path),
+            onPressed: () => _openDocument(path, previewTitle ?? label),
             icon: const Icon(Icons.visibility_outlined, size: 16),
             label: const Text('View', style: TextStyle(fontSize: 12)),
             style: ElevatedButton.styleFrom(
@@ -451,14 +455,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _openDocument(String path) async {
+  Future<void> _openDocument(String path, String title) async {
     try {
-      final uri = resolveInvoiceUri(Environment.apiBaseUrl, path);
-      await showDocumentPreview(
-        context,
-        title: path.split('/').last.isEmpty ? 'Document' : path.split('/').last,
-        uri: uri,
-      );
+      final uri = resolveDriverDocumentUri(Environment.apiBaseUrl, path);
+      await showDocumentPreview(context, title: title, uri: uri);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -526,6 +526,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
+
+Uri resolveDriverDocumentUri(String apiBaseUrl, String documentPath) {
+  final trimmedPath = documentPath.trim();
+  final parsedPath = Uri.tryParse(trimmedPath);
+  if (parsedPath != null && parsedPath.hasScheme) return parsedPath;
+
+  final normalizedPath = trimmedPath.replaceAll('\\', '/');
+  final fileName = normalizedPath.split('/').last;
+
+  return Uri.parse(
+    apiBaseUrl,
+  ).resolve('file').replace(queryParameters: {'name': fileName});
 }
 
 class _ErrorState extends StatelessWidget {

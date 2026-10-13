@@ -24,7 +24,7 @@ class StartDeliverySubmission {
   final int startOdometerReading;
   final List<PhotoMeta> startVehiclePhotos;
   final List<PhotoMeta> startAnimalPhotos;
-  final PhotoMeta onLoadAnimalsVideo;
+  final List<PhotoMeta> onLoadAnimalsVideos;
   final String startLatitude;
   final String startLongitude;
   final List<DeliveryChecklistItem> vehicleChecklist;
@@ -36,7 +36,7 @@ class StartDeliverySubmission {
     required this.startOdometerReading,
     required this.startVehiclePhotos,
     required this.startAnimalPhotos,
-    required this.onLoadAnimalsVideo,
+    required this.onLoadAnimalsVideos,
     required this.startLatitude,
     required this.startLongitude,
     required this.vehicleChecklist,
@@ -52,6 +52,7 @@ class StartDeliveryRequest {
   final List<String> startVehiclePhotos;
   final List<String> startAnimalPhotos;
   final String onLoadAnimalsVideo;
+  final List<String> onLoadAnimalsVideos;
   final String startLatitude;
   final String startLongitude;
   final List<DeliveryChecklistItem> vehicleChecklist;
@@ -67,6 +68,7 @@ class StartDeliveryRequest {
     required this.startVehiclePhotos,
     required this.startAnimalPhotos,
     required this.onLoadAnimalsVideo,
+    this.onLoadAnimalsVideos = const [],
     required this.startLatitude,
     required this.startLongitude,
     required this.vehicleChecklist,
@@ -83,6 +85,8 @@ class StartDeliveryRequest {
     'startVehiclePhotos': startVehiclePhotos,
     'startAnimalPhotos': startAnimalPhotos,
     'onLoadAnimalsVideo': onLoadAnimalsVideo,
+    if (onLoadAnimalsVideos.isNotEmpty)
+      'onLoadAnimalsVideos': onLoadAnimalsVideos,
     'startLatitude': startLatitude,
     'startLongitude': startLongitude,
     'vehicleChecklist': vehicleChecklist.map((item) => item.toJson()).toList(),

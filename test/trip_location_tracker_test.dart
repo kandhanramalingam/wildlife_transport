@@ -96,13 +96,43 @@ void main() {
       await source.close();
     },
   );
+
+  test(
+    'stops tracking and discards queued readings when trip is completed',
+    () async {
+      final repository = _LocationRepository()..inactiveTrip = true;
+      final store = _MemoryQueueStore();
+      final source = _PositionSource(
+        TripPosition(
+          latitude: -25.7461,
+          longitude: 28.1881,
+          accuracyMetres: 9,
+          recordedAt: DateTime.utc(2026, 8, 30, 10),
+        ),
+      );
+      final tracker = TripLocationTracker(
+        repository,
+        store,
+        positionSource: source,
+      );
+
+      await tracker.start('delivery-1');
+
+      expect(tracker.isActive, isFalse);
+      expect(tracker.warningMessage, isNull);
+      expect(tracker.pendingCount, 0);
+      expect(store.readings, isEmpty);
+      await source.close();
+    },
+  );
 }
 
 class _MemoryQueueStore implements LocationQueueStore {
   List<DriverLocationReading> readings = [];
 
   @override
-  Future<List<DriverLocationReading>> load() async => List.unmodifiable(readings);
+  Future<List<DriverLocationReading>> load() async =>
+      List.unmodifiable(readings);
 
   @override
   Future<void> replace(List<DriverLocationReading> readings) async {
@@ -132,10 +162,12 @@ class _PositionSource implements TripPositionSource {
 
 class _LocationRepository implements DeliveryRepository {
   bool offline = false;
+  bool inactiveTrip = false;
   final uploaded = <DriverLocationReading>[];
 
   @override
   Future<void> submitDriverLocation(DriverLocationReading reading) async {
+    if (inactiveTrip) throw const InactiveTripFailure();
     if (offline) throw const NetworkFailure();
     uploaded.add(reading);
   }

@@ -45,9 +45,6 @@ class CustomerNavigationController extends ChangeNotifier {
       throw StateError('Turn on location services, then retry.');
     }
     var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
       throw StateError(

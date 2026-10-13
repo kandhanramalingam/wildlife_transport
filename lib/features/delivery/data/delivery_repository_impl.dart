@@ -48,6 +48,20 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         vehicleId: vehicleId,
       );
 
+  Future<DeliveryModel?> replayStatus(
+    String deliveryId,
+    DeliveryStatusUpdate status, {
+    String? vehicleId,
+  }) => _runModelAction(
+    () => _remoteDataSource.updateStatus(
+      deliveryId,
+      status,
+      vehicleId: vehicleId,
+      offlineReplay: true,
+    ),
+    fallbackMessage: 'Could not sync delivery status',
+  );
+
   @override
   Future<DeliveryModel?> completeLoading(
     String deliveryId,
@@ -71,11 +85,15 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
           ),
         ),
       );
-      final uploaded = await Future.wait([
-        _remoteDataSource.uploadVideo(
-          await submission.onLoadAnimalsVideo.photo.readAsBytes(),
-          submission.onLoadAnimalsVideo.photo.name,
+      final animalVideos = await Future.wait(
+        submission.onLoadAnimalsVideos.map(
+          (video) async => _remoteDataSource.uploadVideo(
+            await video.photo.readAsBytes(),
+            video.photo.name,
+          ),
         ),
+      );
+      final uploadedSignatures = await Future.wait([
         _remoteDataSource.uploadImage(
           submission.managerSignature,
           'manager-signature.png',
@@ -102,26 +120,28 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
               animalPhotos[i],
               'animal_photo',
             ),
-          submission.onLoadAnimalsVideo.uploadedMetadata(
-            uploaded[0],
-            'animal_video',
-          ),
+          for (var i = 0; i < animalVideos.length; i++)
+            submission.onLoadAnimalsVideos[i].uploadedMetadata(
+              animalVideos[i],
+              'animal_video',
+            ),
         ],
         startOdometerReading: submission.startOdometerReading,
         startVehiclePhotos: vehiclePhotos,
         startAnimalPhotos: animalPhotos,
-        onLoadAnimalsVideo: uploaded[0],
+        onLoadAnimalsVideo: animalVideos.first,
+        onLoadAnimalsVideos: animalVideos,
         startLatitude: submission.startLatitude,
         startLongitude: submission.startLongitude,
         vehicleChecklist: submission.vehicleChecklist,
         gameLoadingChecklist: submission.gameLoadingChecklist,
-        managerSignature: uploaded[1],
+        managerSignature: uploadedSignatures[0],
         managerSignatureMetadata: {
           'capturedAt': nowUtcIso,
           'latitude': lat,
           'longitude': lng,
         },
-        otherSignature: uploaded[2],
+        otherSignature: uploadedSignatures[1],
         otherSignatureMetadata: {
           'capturedAt': nowUtcIso,
           'latitude': lat,
@@ -222,16 +242,13 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         buyerId: submission.buyerId,
         clientComment: submission.clientComment,
       );
-      final endDto = await _remoteDataSource.endDelivery(
+      final endDto = await _remoteDataSource.completeOffloading(
         deliveryId,
         request.toJson(),
       );
-      final statusDto = await _remoteDataSource.updateStatus(
-        deliveryId,
-        DeliveryStatusUpdate.completed,
-        vehicleId: vehicleId,
-      );
-      return _deliveryModelFromDto(statusDto ?? endDto);
+      // The completion endpoint is authoritative. A null DTO still means the
+      // mutation succeeded but an older response shape could not be parsed.
+      return _deliveryModelFromDto(endDto);
     } on DioException catch (exception) {
       throw mapDioException(exception);
     } on Failure {
@@ -352,6 +369,18 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       balanceLotNumbers: dto.balanceLotNumbers,
       partialDelivery: dto.partialDelivery,
       permits: dto.permits,
+      maps: dto.maps,
+      lotDetails: dto.lotDetails
+          .map(
+            (lot) => DeliveryLotDetails(
+              lotNumber: lot.lotNumber,
+              description: lot.description,
+              quantity: lot.quantity,
+              status: lot.status,
+              comment: lot.comment,
+            ),
+          )
+          .toList(growable: false),
       assignments: dto.assignments
           .map(_assignmentFromDto)
           .whereType<DeliveryAssignment>()
@@ -359,6 +388,16 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
       startVehiclePhotos: dto.startVehiclePhotos,
       startAnimalPhotos: dto.startAnimalPhotos,
       onLoadAnimalsVideo: dto.onLoadAnimalsVideo,
+      onLoadAnimalsVideos: dto.onLoadAnimalsVideos,
+      startMediaMetadata: dto.startMediaMetadata
+          .map(
+            (media) => DeliveryLoadingMedia(
+              filePath: media.filePath,
+              kind: media.kind,
+              lotNumber: media.lotNumber,
+            ),
+          )
+          .toList(growable: false),
       lots: dto.lots
           .map(
             (lot) => DeliveryLot(
@@ -395,6 +434,7 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
           : DeliveryStatus.fromApi(dto.deliveryStatus!),
       lotNumbers: dto.lotNumbers,
       loadedLotNumbers: dto.loadedLotNumbers,
+      deliveredLotNumbers: dto.deliveredLotNumbers,
     );
   }
 }

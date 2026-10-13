@@ -4,6 +4,7 @@ import '../../../core/config/environment.dart';
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/location/current_location.dart';
+import '../../../core/location/home_permissions.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/document_preview.dart';
 import '../domain/delivery_repository.dart';
@@ -12,6 +13,7 @@ import '../models/location_tracking.dart';
 import '../widgets/client_contact_row.dart';
 import '../widgets/customer_location_confirmation_sheet.dart';
 import '../widgets/loading_media_sheet.dart';
+import '../widgets/trip_document_actions.dart';
 import 'start_delivery/start_delivery_screen.dart';
 
 class TripCustomersScreen extends StatefulWidget {
@@ -50,16 +52,57 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
               address: widget.delivery.clientAddress,
               invoicePath: widget.delivery.invoicePath,
               status: DeliveryStatus.inProgress,
+              offloadingSyncPending: widget.delivery.offloadingSyncPending,
               assignment: widget.delivery.assignment,
             ),
           ]
         : List.of(widget.delivery.lotsInOffloadingOrder);
+    final savedStatuses = AppDependencies.offloadingSyncService.pendingStatuses;
+    _customers = _customers
+        .map((customer) {
+          final saved = savedStatuses[customer.deliveryId];
+          if (saved == null ||
+              customer.deliveryCompleted ||
+              saved.index < customer.status.index) {
+            return customer;
+          }
+          return customer.copyWith(status: saved, atDeliveryPoint: true);
+        })
+        .toList(growable: false);
     for (final customer in _customers) {
       if (customer.atDeliveryPoint && !customer.deliveryCompleted) {
         _activeCustomerDeliveryId = customer.deliveryId;
         break;
       }
     }
+    AppDependencies.offloadingSyncService.addListener(_onOffloadingSyncChanged);
+  }
+
+  void _onOffloadingSyncChanged() {
+    if (!mounted) return;
+    setState(() {
+      _customers = _customers
+          .map((customer) {
+            final pending = AppDependencies.offloadingSyncService.isPending(
+              customer.deliveryId,
+            );
+            return customer.copyWith(
+              offloadingSyncPending: pending,
+              status: customer.offloadingSyncPending && !pending
+                  ? DeliveryStatus.completed
+                  : customer.status,
+            );
+          })
+          .toList(growable: false);
+    });
+  }
+
+  @override
+  void dispose() {
+    AppDependencies.offloadingSyncService.removeListener(
+      _onOffloadingSyncChanged,
+    );
+    super.dispose();
   }
 
   Future<void> _startOffLoading(DeliveryLot customer) async {
@@ -90,13 +133,13 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
       if (_startingOffloadingDeliveryId == customer.deliveryId) return;
       setState(() => _startingOffloadingDeliveryId = customer.deliveryId);
       try {
-        await (_repository ??= AppDependencies.createDeliveryRepository())
-            .atDeliveryLocation(
-              customer.deliveryId,
-              vehicleId:
-                  customer.assignment?.vehicleId ??
-                  widget.delivery.assignedVehicleId,
-            );
+        await AppDependencies.offloadingSyncService.submitStatus(
+          deliveryId: customer.deliveryId,
+          vehicleId:
+              customer.assignment?.vehicleId ??
+              widget.delivery.assignedVehicleId,
+          status: DeliveryStatusUpdate.arrivedAtLocation,
+        );
       } on Failure catch (failure) {
         _showError(failure.message);
         return;
@@ -124,13 +167,13 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
     if (customer.status != DeliveryStatus.offloading) {
       setState(() => _startingOffloadingDeliveryId = customer.deliveryId);
       try {
-        await (_repository ??= AppDependencies.createDeliveryRepository())
-            .startOffloading(
-              customer.deliveryId,
-              vehicleId:
-                  customer.assignment?.vehicleId ??
-                  widget.delivery.assignedVehicleId,
-            );
+        await AppDependencies.offloadingSyncService.submitStatus(
+          deliveryId: customer.deliveryId,
+          vehicleId:
+              customer.assignment?.vehicleId ??
+              widget.delivery.assignedVehicleId,
+          status: DeliveryStatusUpdate.offloadingStarted,
+        );
       } on Failure catch (failure) {
         _showError(failure.message);
         return;
@@ -163,6 +206,7 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
       paymentStatus: widget.delivery.paymentStatus,
       invoicePath: customer.invoicePath,
       permits: widget.delivery.permits,
+      maps: widget.delivery.maps,
       assignment: customer.assignment ?? widget.delivery.assignment,
     );
     final completed = await Navigator.of(context).push<bool>(
@@ -177,13 +221,19 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
     );
     if (completed != true || !mounted) return;
 
+    final pending = AppDependencies.offloadingSyncService.isPending(
+      customer.deliveryId,
+    );
     setState(() {
       _activeCustomerDeliveryId = null;
       _customers = _customers
           .map(
             (item) => item.deliveryId == customer.deliveryId
                 ? item.copyWith(
-                    status: DeliveryStatus.completed,
+                    status: pending
+                        ? DeliveryStatus.offloading
+                        : DeliveryStatus.completed,
+                    offloadingSyncPending: pending,
                     atDeliveryPoint: false,
                   )
                 : item,
@@ -214,13 +264,7 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
 
     try {
       final invoiceUri = resolveInvoiceUri(Environment.apiBaseUrl, invoicePath);
-      await showDocumentPreview(
-        context,
-        title: invoicePath.split('/').last.isEmpty
-            ? 'Invoice'
-            : invoicePath.split('/').last,
-        uri: invoiceUri,
-      );
+      await showDocumentPreview(context, title: 'Invoice', uri: invoiceUri);
     } catch (_) {
       if (mounted) _showInvoiceError();
     }
@@ -228,6 +272,11 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
 
   Future<void> _storeCustomerLocation(DeliveryLot customer) async {
     if (_savingLocationDeliveryId != null) return;
+    final locationAllowed = await requestLocationAccess(
+      context,
+      LocationPermissionPurpose.customerLocation,
+    );
+    if (!locationAllowed || !mounted) return;
     setState(() => _savingLocationDeliveryId = customer.deliveryId);
     try {
       final coordinates = await getCurrentCoordinates();
@@ -335,7 +384,10 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
-        if (widget.delivery.isMultiPickup || widget.delivery.permits.isNotEmpty)
+        if (widget.delivery.isMultiPickup ||
+            widget.delivery.permits.isNotEmpty ||
+            widget.delivery.maps.isNotEmpty ||
+            widget.delivery.invoicePath?.trim().isNotEmpty == true)
           _buildTripOverviewHeader(),
         ..._customers.map((customer) {
           final isActive = _activeCustomerDeliveryId == customer.deliveryId;
@@ -353,9 +405,18 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
             isLocked: isLocked,
             isStarting: isStarting,
             isSavingLocation: isSavingLocation,
+            lotNumbers:
+                customer.assignment?.allLotNumbers ??
+                widget.delivery.assignment?.allLotNumbers ??
+                const [],
             onArrived: () => _startOffLoading(customer),
             onViewInvoice: () => _viewInvoice(customer),
             onStoreLocation: () => _storeCustomerLocation(customer),
+            onViewLotMedia: (lotNumber) => LoadingMediaSheet.show(
+              context,
+              widget.delivery,
+              lotNumber: lotNumber,
+            ),
           );
         }),
       ],
@@ -458,62 +519,11 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
               ],
               const SizedBox(height: 10),
             ],
-            if (widget.delivery.permits.isNotEmpty) ...[
-              Row(
-                children: [
-                  const Icon(
-                    Icons.description_outlined,
-                    size: 16,
-                    color: AppTheme.primary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Permits (${widget.delivery.permits.length})',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: widget.delivery.permits
-                    .asMap()
-                    .entries
-                    .map((entry) {
-                      final index = entry.key;
-                      final path = entry.value;
-                      final fileName = path.split('/').last;
-                      return ActionChip(
-                        avatar: const Icon(
-                          Icons.picture_as_pdf_outlined,
-                          size: 16,
-                          color: AppTheme.primary,
-                        ),
-                        label: Text(
-                          fileName.isNotEmpty
-                              ? 'Permit ${index + 1}'
-                              : 'Permit ${index + 1}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.primary,
-                          ),
-                        ),
-                        backgroundColor: Colors.white,
-                        side: BorderSide(
-                          color: AppTheme.primary.withValues(alpha: 0.3),
-                        ),
-                        onPressed: () => _openPermit(path),
-                      );
-                    })
-                    .toList(growable: false),
-              ),
-            ],
+            TripDocumentActions(
+              invoicePath: widget.delivery.invoicePath,
+              permits: widget.delivery.permits,
+              maps: widget.delivery.maps,
+            ),
             if (widget.delivery.hasLoadingMedia) ...[
               const SizedBox(height: 12),
               SizedBox(
@@ -546,23 +556,6 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
       ),
     );
   }
-
-  Future<void> _openPermit(String permitPath) async {
-    try {
-      final uri = resolveInvoiceUri(Environment.apiBaseUrl, permitPath);
-      await showDocumentPreview(
-        context,
-        title: permitPath.split('/').last.isEmpty
-            ? 'Permit'
-            : permitPath.split('/').last,
-        uri: uri,
-      );
-    } catch (_) {
-      if (mounted) {
-        _showError('Could not open the permit file.');
-      }
-    }
-  }
 }
 
 class _CustomerCard extends StatelessWidget {
@@ -571,9 +564,11 @@ class _CustomerCard extends StatelessWidget {
   final bool isLocked;
   final bool isStarting;
   final bool isSavingLocation;
+  final List<String> lotNumbers;
   final VoidCallback onArrived;
   final VoidCallback onViewInvoice;
   final VoidCallback onStoreLocation;
+  final ValueChanged<String> onViewLotMedia;
 
   const _CustomerCard({
     required this.customer,
@@ -581,9 +576,11 @@ class _CustomerCard extends StatelessWidget {
     required this.isLocked,
     required this.isStarting,
     required this.isSavingLocation,
+    required this.lotNumbers,
     required this.onArrived,
     required this.onViewInvoice,
     required this.onStoreLocation,
+    required this.onViewLotMedia,
   });
 
   @override
@@ -638,10 +635,19 @@ class _CustomerCard extends StatelessWidget {
                 if (customer.deliveryCompleted)
                   Row(
                     children: [
-                      Icon(Icons.check_circle, color: Colors.green.shade700),
+                      Icon(
+                        customer.offloadingSyncPending
+                            ? Icons.cloud_upload_outlined
+                            : Icons.check_circle,
+                        color: customer.offloadingSyncPending
+                            ? AppTheme.primary
+                            : Colors.green.shade700,
+                      ),
                       const SizedBox(width: 6),
                       Text(
-                        'Completed',
+                        customer.offloadingSyncPending
+                            ? 'Awaiting sync'
+                            : 'Completed',
                         style: TextStyle(
                           color: Colors.green.shade700,
                           fontWeight: FontWeight.w600,
@@ -696,11 +702,45 @@ class _CustomerCard extends StatelessWidget {
                 showNavigation: !isLocked,
               ),
             ],
-            if (customer.assignment?.lotNumbers.isNotEmpty == true) ...[
+            if (lotNumbers.isNotEmpty) ...[
               const SizedBox(height: 10),
-              _ClientDetailRow(
-                icon: Icons.inventory_2_outlined,
-                value: 'Lots: ${customer.assignment!.lotNumbers.join(', ')}',
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 9),
+                    child: Icon(
+                      Icons.inventory_2_outlined,
+                      size: 18,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final lotNumber in lotNumbers)
+                          OutlinedButton.icon(
+                            onPressed: () => onViewLotMedia(lotNumber),
+                            icon: const Icon(
+                              Icons.photo_library_outlined,
+                              size: 16,
+                            ),
+                            label: Text('Lot $lotNumber'),
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              foregroundColor: AppTheme.primary,
+                              side: BorderSide(
+                                color: AppTheme.primary.withValues(alpha: 0.4),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
             if (customer.latitude.isNotEmpty ||

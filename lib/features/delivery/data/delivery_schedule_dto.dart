@@ -24,10 +24,14 @@ class DeliveryScheduleDto {
   final List<String> balanceLotNumbers;
   final bool partialDelivery;
   final List<String> permits;
+  final List<String> maps;
+  final List<DeliveryLotDetailsDto> lotDetails;
   final List<DeliveryAssignmentDto> assignments;
   final List<String> startVehiclePhotos;
   final List<String> startAnimalPhotos;
   final String? onLoadAnimalsVideo;
+  final List<String> onLoadAnimalsVideos;
+  final List<DeliveryLoadingMediaDto> startMediaMetadata;
 
   const DeliveryScheduleDto({
     required this.id,
@@ -55,10 +59,14 @@ class DeliveryScheduleDto {
     this.balanceLotNumbers = const [],
     this.partialDelivery = false,
     this.permits = const [],
+    this.maps = const [],
+    this.lotDetails = const [],
     this.assignments = const [],
     this.startVehiclePhotos = const [],
     this.startAnimalPhotos = const [],
     this.onLoadAnimalsVideo,
+    this.onLoadAnimalsVideos = const [],
+    this.startMediaMetadata = const [],
   });
 
   factory DeliveryScheduleDto.fromJson(
@@ -89,7 +97,8 @@ class DeliveryScheduleDto {
         json['deliveryStatus']?.toString() ??
         'pending';
 
-    final multiPickup = json['multiPickupPointJob'] == true ||
+    final multiPickup =
+        json['multiPickupPointJob'] == true ||
         json['multiplePickupPoint'] == true;
     final pickupNotice = json['pickupNotice']?.toString();
     final pickupStops = _parsePickupStops(json['pickupStops']);
@@ -98,11 +107,13 @@ class DeliveryScheduleDto {
     final totalLots = _intValue(json['totalLots']) ?? vehicleLotTotal;
     final assignedLots = _intValue(json['assignedLots']) ?? 0;
     final deliveredLots = _intValue(json['deliveredLots']) ?? 0;
-    final balanceLots = _intValue(json['balanceLots']) ??
+    final balanceLots =
+        _intValue(json['balanceLots']) ??
         (totalLots > deliveredLots ? totalLots - deliveredLots : 0);
     final balanceLotNumbers = _parseStringList(json['balanceLotNumbers']);
     final partialDelivery = json['partialDelivery'] == true;
     final permits = _parseStringList(json['permits']);
+    final maps = _parseStringList(json['maps']);
     final parsedAssignments = _parseAssignments(json['assignments']);
 
     return DeliveryScheduleDto(
@@ -135,10 +146,14 @@ class DeliveryScheduleDto {
       balanceLotNumbers: balanceLotNumbers,
       partialDelivery: partialDelivery,
       permits: permits,
+      maps: maps,
+      lotDetails: _parseLotDetails(json['lots']),
       assignments: parsedAssignments,
       startVehiclePhotos: _parseStringList(json['startVehiclePhotos']),
       startAnimalPhotos: _parseStringList(json['startAnimalPhotos']),
       onLoadAnimalsVideo: _stringValue(json['onLoadAnimalsVideo']),
+      onLoadAnimalsVideos: _parseAnimalVideos(json),
+      startMediaMetadata: _parseLoadingMedia(json['startMediaMetadata']),
       lots: _parseLots(
         mainDeliveryId: id,
         mainBuyerId: buyerId,
@@ -420,7 +435,12 @@ class DeliveryScheduleDto {
           json['assignment'],
     );
     if (direct.isNotEmpty) {
-      return DeliveryAssignmentDto.fromJson(direct);
+      return DeliveryAssignmentDto.fromJson({
+        'lotNumbers': json['lotNumbers'],
+        'loadedLotNumbers': json['loadedLotNumbers'],
+        'deliveredLotNumbers': json['deliveredLotNumbers'],
+        ...direct,
+      });
     }
 
     final rawAssignments = json['assignments'];
@@ -455,7 +475,14 @@ class DeliveryScheduleDto {
     if (selected == null && assignments.length == 1) {
       selected = assignments.single;
     }
-    if (selected != null) return DeliveryAssignmentDto.fromJson(selected);
+    if (selected != null) {
+      return DeliveryAssignmentDto.fromJson({
+        'lotNumbers': json['lotNumbers'],
+        'loadedLotNumbers': json['loadedLotNumbers'],
+        'deliveredLotNumbers': json['deliveredLotNumbers'],
+        ...selected,
+      });
+    }
 
     // Schedule endpoints are already scoped to the authenticated driver. A
     // singular top-level vehicle is therefore safe as a compatibility fallback;
@@ -469,6 +496,9 @@ class DeliveryScheduleDto {
       'driverDetails': json['driverDetails'],
       'vehicleId': json['vehicleId'] ?? vehicle,
       'deliveryStatus': json['driverDeliveryStatus'],
+      'lotNumbers': json['lotNumbers'],
+      'loadedLotNumbers': json['loadedLotNumbers'],
+      'deliveredLotNumbers': json['deliveredLotNumbers'],
     });
   }
 
@@ -487,9 +517,8 @@ class DeliveryScheduleDto {
     final stops = rawStops
         .whereType<Map>()
         .map(
-          (item) => DeliveryPickupStopDto.fromJson(
-            Map<String, dynamic>.from(item),
-          ),
+          (item) =>
+              DeliveryPickupStopDto.fromJson(Map<String, dynamic>.from(item)),
         )
         .toList();
     stops.sort((a, b) => a.order.compareTo(b.order));
@@ -499,24 +528,92 @@ class DeliveryScheduleDto {
   static List<DeliveryAssignmentDto> _parseAssignments(dynamic rawAssignments) {
     if (rawAssignments is! List) return const [];
     return List.unmodifiable(
-      rawAssignments
-          .whereType<Map>()
-          .map(
-            (item) => DeliveryAssignmentDto.fromJson(
-              Map<String, dynamic>.from(item),
-            ),
-          ),
+      rawAssignments.whereType<Map>().map(
+        (item) =>
+            DeliveryAssignmentDto.fromJson(Map<String, dynamic>.from(item)),
+      ),
     );
   }
 
   static List<String> _parseStringList(dynamic rawList) {
     if (rawList is! List) return const [];
     return List.unmodifiable(
-      rawList
-          .map((e) => e?.toString().trim() ?? '')
-          .where((e) => e.isNotEmpty),
+      rawList.map((e) => e?.toString().trim() ?? '').where((e) => e.isNotEmpty),
     );
   }
+
+  static List<String> _parseAnimalVideos(Map<String, dynamic> json) {
+    final videos = _parseStringList(json['onLoadAnimalsVideos']);
+    if (videos.isNotEmpty) return videos;
+    final legacyVideo = _stringValue(json['onLoadAnimalsVideo']);
+    return legacyVideo.isEmpty ? const [] : [legacyVideo];
+  }
+
+  static List<DeliveryLoadingMediaDto> _parseLoadingMedia(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .map(DeliveryLoadingMediaDto.fromJson)
+        .where((media) => media.filePath.isNotEmpty && media.kind.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  static List<DeliveryLotDetailsDto> _parseLotDetails(dynamic rawLots) {
+    if (rawLots is! List) return const [];
+    return List.unmodifiable(
+      rawLots
+          .whereType<Map>()
+          .map((item) {
+            final lot = Map<String, dynamic>.from(item);
+            return DeliveryLotDetailsDto(
+              lotNumber: _stringValue(lot['lotNo'] ?? lot['lotNumber']),
+              description: _stringValue(lot['description']),
+              quantity: _intValue(lot['quantity']),
+              status: _stringValue(lot['status']),
+              comment: _stringValue(lot['comment']),
+            );
+          })
+          .where((lot) => lot.lotNumber.isNotEmpty),
+    );
+  }
+}
+
+class DeliveryLoadingMediaDto {
+  final String filePath;
+  final String kind;
+  final String? lotNumber;
+
+  const DeliveryLoadingMediaDto({
+    required this.filePath,
+    required this.kind,
+    this.lotNumber,
+  });
+
+  factory DeliveryLoadingMediaDto.fromJson(Map<String, dynamic> json) {
+    final lotNumber = json['lotNumber']?.toString().trim();
+    return DeliveryLoadingMediaDto(
+      filePath: json['filePath']?.toString().trim() ?? '',
+      kind: json['kind']?.toString().trim() ?? '',
+      lotNumber: lotNumber?.isEmpty == true ? null : lotNumber,
+    );
+  }
+}
+
+class DeliveryLotDetailsDto {
+  final String lotNumber;
+  final String description;
+  final int? quantity;
+  final String status;
+  final String comment;
+
+  const DeliveryLotDetailsDto({
+    required this.lotNumber,
+    this.description = '',
+    this.quantity,
+    this.status = '',
+    this.comment = '',
+  });
 }
 
 class DeliveryPickupStopDto {
@@ -582,6 +679,7 @@ class DeliveryAssignmentDto {
   final String? deliveryStatus;
   final List<String> lotNumbers;
   final List<String> loadedLotNumbers;
+  final List<String> deliveredLotNumbers;
 
   const DeliveryAssignmentDto({
     required this.driverId,
@@ -592,6 +690,7 @@ class DeliveryAssignmentDto {
     required this.deliveryStatus,
     this.lotNumbers = const [],
     this.loadedLotNumbers = const [],
+    this.deliveredLotNumbers = const [],
   });
 
   factory DeliveryAssignmentDto.fromJson(Map<String, dynamic> json) {
@@ -641,6 +740,9 @@ class DeliveryAssignmentDto {
       lotNumbers: DeliveryScheduleDto._parseStringList(json['lotNumbers']),
       loadedLotNumbers: DeliveryScheduleDto._parseStringList(
         json['loadedLotNumbers'],
+      ),
+      deliveredLotNumbers: DeliveryScheduleDto._parseStringList(
+        json['deliveredLotNumbers'],
       ),
     );
   }

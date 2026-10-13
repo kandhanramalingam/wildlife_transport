@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/location/home_permissions.dart';
 import '../../../models/photo_meta.dart';
 import '../widgets/photo_viewer_screen.dart';
 
@@ -11,7 +12,7 @@ class PhotosStepData {
   final int? odometerReading;
   final List<PhotoMeta> vehiclePhotos;
   final List<PhotoMeta> animalPhotos;
-  final PhotoMeta animalVideo;
+  final List<PhotoMeta> animalVideos;
   final String latitude;
   final String longitude;
 
@@ -19,7 +20,7 @@ class PhotosStepData {
     required this.odometerReading,
     required this.vehiclePhotos,
     required this.animalPhotos,
-    required this.animalVideo,
+    required this.animalVideos,
     required this.latitude,
     required this.longitude,
   });
@@ -32,6 +33,7 @@ class PhotosStep extends StatefulWidget {
   final bool includeAnimalPhotos;
   final bool requireLocation;
   final bool isOffLoading;
+  final List<String> lotNumbers;
 
   const PhotosStep({
     super.key,
@@ -41,6 +43,7 @@ class PhotosStep extends StatefulWidget {
     this.includeAnimalPhotos = true,
     this.requireLocation = true,
     this.isOffLoading = false,
+    this.lotNumbers = const [],
   });
 
   @override
@@ -53,18 +56,37 @@ class _PhotosStepState extends State<PhotosStep>
   final List<PhotoMeta> _vehiclePhotos = [];
   final List<PhotoMeta> _animalPhotos = [];
   final _picker = ImagePicker();
-  PhotoMeta? _animalVideo;
+  final List<PhotoMeta> _animalVideos = [];
   String? _latitude;
   String? _longitude;
   bool _isCapturing = false;
+
+  List<String> get _lotNumbers => widget.lotNumbers
+      .map((lot) => lot.trim())
+      .where((lot) => lot.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
+
+  bool get _hasPhotoForEveryLot =>
+      _lotNumbers.isEmpty ||
+      _lotNumbers.every(
+        (lot) => _animalPhotos.any((photo) => photo.lotNumber == lot),
+      );
+
+  bool get _hasVideoForEveryLot => _lotNumbers.isEmpty
+      ? _animalVideos.isNotEmpty
+      : _lotNumbers.every(
+          (lot) => _animalVideos.any((video) => video.lotNumber == lot),
+        );
 
   bool get _canProceed =>
       !_isCapturing &&
       (!widget.includeVehicleDetails ||
           (int.tryParse(_kmController.text.trim()) ?? -1) >= 0) &&
       (!widget.includeVehiclePhotos || _vehiclePhotos.isNotEmpty) &&
-      (!widget.includeAnimalPhotos || _animalPhotos.isNotEmpty) &&
-      _animalVideo != null &&
+      (!widget.includeAnimalPhotos ||
+          (_animalPhotos.isNotEmpty && _hasPhotoForEveryLot)) &&
+      _hasVideoForEveryLot &&
       (!widget.requireLocation || (_latitude != null && _longitude != null));
 
   @override
@@ -78,10 +100,7 @@ class _PhotosStepState extends State<PhotosStep>
         return (display: 'Location off', latitude: null, longitude: null);
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
+      final permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         return (display: 'Permission denied', latitude: null, longitude: null);
@@ -101,8 +120,18 @@ class _PhotosStepState extends State<PhotosStep>
     }
   }
 
-  Future<PhotoMeta?> _captureMedia({required bool video}) async {
+  Future<PhotoMeta?> _captureMedia({
+    required bool video,
+    String? lotNumber,
+  }) async {
     if (_isCapturing) return null;
+    if (widget.requireLocation) {
+      final locationAllowed = await requestLocationAccess(
+        context,
+        LocationPermissionPurpose.deliveryEvidence,
+      );
+      if (!locationAllowed || !mounted) return null;
+    }
     setState(() => _isCapturing = true);
     try {
       final file = video
@@ -135,6 +164,7 @@ class _PhotosStepState extends State<PhotosStep>
         dateTime: capturedAt,
         latitude: double.parse(location.latitude!),
         longitude: double.parse(location.longitude!),
+        lotNumber: lotNumber,
       );
     } catch (_) {
       if (mounted) {
@@ -150,14 +180,19 @@ class _PhotosStepState extends State<PhotosStep>
     }
   }
 
-  Future<void> _capturePhoto(List<PhotoMeta> list) async {
-    final media = await _captureMedia(video: false);
+  Future<void> _capturePhoto(List<PhotoMeta> list, {String? lotNumber}) async {
+    final media = await _captureMedia(video: false, lotNumber: lotNumber);
     if (media != null && mounted) setState(() => list.add(media));
   }
 
-  Future<void> _captureVideo() async {
-    final media = await _captureMedia(video: true);
-    if (media != null && mounted) setState(() => _animalVideo = media);
+  Future<void> _captureVideo({String? lotNumber}) async {
+    final media = await _captureMedia(video: true, lotNumber: lotNumber);
+    if (media != null && mounted) {
+      setState(() {
+        _animalVideos.removeWhere((video) => video.lotNumber == lotNumber);
+        _animalVideos.add(media);
+      });
+    }
   }
 
   @override
@@ -229,10 +264,13 @@ class _PhotosStepState extends State<PhotosStep>
                         ),
                       ),
                       const SizedBox(height: 10),
-                      _photoGrid(
-                        photos: _animalPhotos,
-                        onAdd: () => _capturePhoto(_animalPhotos),
-                      ),
+                      if (_lotNumbers.isEmpty)
+                        _photoGrid(
+                          photos: _animalPhotos,
+                          onAdd: () => _capturePhoto(_animalPhotos),
+                        )
+                      else
+                        _lotPhotoGrid(),
                       const SizedBox(height: 24),
                     ],
                     _sectionHeader('Animal Video Clip'),
@@ -247,7 +285,14 @@ class _PhotosStepState extends State<PhotosStep>
                       ),
                     ),
                     const SizedBox(height: 10),
-                    _videoCaptureCard(),
+                    if (_lotNumbers.isEmpty)
+                      _videoCaptureCard()
+                    else
+                      for (final lotNumber in _lotNumbers)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _videoCaptureCard(lotNumber: lotNumber),
+                        ),
                   ],
                 ),
               ),
@@ -281,6 +326,85 @@ class _PhotosStepState extends State<PhotosStep>
           (e) => _thumbnail(photos: photos, index: e.key),
         ),
         _addButton(onAdd),
+      ],
+    );
+  }
+
+  Widget _lotPhotoGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Tap each lot to capture its animal photo.',
+          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+        ),
+        const SizedBox(height: 8),
+        for (final lotNumber in _lotNumbers)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppTheme.primary.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 18,
+                        color: AppTheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Lot $lotNumber',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_animalPhotos.any(
+                        (photo) => photo.lotNumber == lotNumber,
+                      ))
+                        const Icon(
+                          Icons.check_circle,
+                          size: 19,
+                          color: Colors.green,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final entry in _animalPhotos.indexed)
+                        if (entry.$2.lotNumber == lotNumber)
+                          _thumbnail(photos: _animalPhotos, index: entry.$1),
+                      KeyedSubtree(
+                        key: ValueKey('lot-photo-$lotNumber'),
+                        child: _addButton(
+                          () => _capturePhoto(
+                            _animalPhotos,
+                            lotNumber: lotNumber,
+                          ),
+                          semanticLabel: 'Take photo for lot $lotNumber',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -347,43 +471,14 @@ class _PhotosStepState extends State<PhotosStep>
     );
   }
 
-  Widget _addButton(VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 90,
-        height: 90,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.add_a_photo_outlined,
-              color: AppTheme.textSecondary,
-              size: 26,
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Add',
-              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _videoCaptureCard() {
-    final video = _animalVideo;
-    if (video == null) {
-      return GestureDetector(
-        onTap: _captureVideo,
+  Widget _addButton(VoidCallback onTap, {String semanticLabel = 'Add photo'}) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: GestureDetector(
+        onTap: onTap,
         child: Container(
-          width: 140,
+          width: 90,
           height: 90,
           decoration: BoxDecoration(
             color: const Color(0xFFF5F5F5),
@@ -394,14 +489,54 @@ class _PhotosStepState extends State<PhotosStep>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
+                Icons.add_a_photo_outlined,
+                color: AppTheme.textSecondary,
+                size: 26,
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Add',
+                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _videoCaptureCard({String? lotNumber}) {
+    final video = _animalVideos.cast<PhotoMeta?>().firstWhere(
+      (item) => item?.lotNumber == lotNumber,
+      orElse: () => null,
+    );
+    if (video == null) {
+      return GestureDetector(
+        key: ValueKey('lot-video-${lotNumber ?? 'trip'}'),
+        onTap: () => _captureVideo(lotNumber: lotNumber),
+        child: Container(
+          width: 140,
+          height: 90,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
                 Icons.videocam_outlined,
                 color: AppTheme.textSecondary,
                 size: 30,
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
-                'Record clip',
-                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                lotNumber == null ? 'Record clip' : 'Lot $lotNumber video',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondary,
+                ),
               ),
             ],
           ),
@@ -410,6 +545,7 @@ class _PhotosStepState extends State<PhotosStep>
     }
 
     return Container(
+      key: ValueKey('lot-video-${lotNumber ?? 'trip'}'),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFFF5F5F5),
@@ -430,12 +566,12 @@ class _PhotosStepState extends State<PhotosStep>
           ),
           IconButton(
             tooltip: 'Record again',
-            onPressed: _captureVideo,
+            onPressed: () => _captureVideo(lotNumber: lotNumber),
             icon: const Icon(Icons.replay_outlined),
           ),
           IconButton(
             tooltip: 'Remove video',
-            onPressed: () => setState(() => _animalVideo = null),
+            onPressed: () => setState(() => _animalVideos.remove(video)),
             icon: const Icon(Icons.delete_outline, color: Colors.red),
           ),
         ],
@@ -462,7 +598,7 @@ class _PhotosStepState extends State<PhotosStep>
                         : null,
                     vehiclePhotos: List.unmodifiable(_vehiclePhotos),
                     animalPhotos: List.unmodifiable(_animalPhotos),
-                    animalVideo: _animalVideo!,
+                    animalVideos: List.unmodifiable(_animalVideos),
                     latitude: _latitude ?? '',
                     longitude: _longitude ?? '',
                   ),

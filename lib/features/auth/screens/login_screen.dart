@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/app_version.dart';
 import '../../../core/di/app_dependencies.dart';
 import '../../../core/theme/app_theme.dart';
 import '../presentation/login_controller.dart';
@@ -79,6 +80,9 @@ class _LoginScreenState extends State<LoginScreen> {
               _buildForm(),
               const SizedBox(height: 24),
               _buildLoginButton(),
+              const SizedBox(height: 20),
+              const AppVersionLabel(),
+              const SizedBox(height: 20),
             ],
           ),
         ),

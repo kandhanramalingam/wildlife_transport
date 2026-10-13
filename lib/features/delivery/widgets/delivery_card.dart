@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/config/environment.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/document_preview.dart';
 import '../models/delivery_model.dart';
-import '../screens/trip_customers_screen.dart';
 import 'client_contact_row.dart';
 import 'loading_media_sheet.dart';
+import 'trip_document_actions.dart';
 
 typedef LotReorderCallback = void Function(int oldIndex, int newIndex);
 
@@ -43,9 +41,11 @@ class DeliveryCard extends StatelessWidget {
               const SizedBox(height: 10),
               _buildPickupStopsSection(),
             ],
-            if (delivery.permits.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _buildDocumentsSection(),
+            if (delivery.assignment?.allLotNumbers.isNotEmpty == true) ...[
               const SizedBox(height: 10),
-              _buildPermitsSection(context),
+              _buildLotsSection(context),
             ],
             if (delivery.hasLoadingMedia) ...[
               const SizedBox(height: 10),
@@ -105,8 +105,6 @@ class DeliveryCard extends StatelessWidget {
 
   Widget _buildAssignmentSummary() {
     final driverName = delivery.assignment?.driverName.trim() ?? '';
-    final assignedLots = delivery.assignment?.lotNumbers ?? const [];
-
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -121,13 +119,13 @@ class DeliveryCard extends StatelessWidget {
           ),
         _AssignmentChip(
           icon: Icons.person_pin_circle_outlined,
-          label: 'Your status: ${_statusLabel(delivery.status)}',
+          label: delivery.hasPendingOffloading
+              ? 'Your status: Awaiting sync'
+              : delivery.status == DeliveryStatus.completed &&
+                    !delivery.deliveryCompleted
+              ? 'Your status: Customers remaining'
+              : 'Your status: ${_statusLabel(delivery.status)}',
         ),
-        if (assignedLots.isNotEmpty)
-          _AssignmentChip(
-            icon: Icons.inventory_2_outlined,
-            label: 'Assigned Lots: ${assignedLots.join(', ')}',
-          ),
         if (delivery.assignments.length > 1)
           ...delivery.assignments
               .where(
@@ -147,6 +145,187 @@ class DeliveryCard extends StatelessWidget {
             label: 'Multi Pickup Point',
           ),
       ],
+    );
+  }
+
+  Widget _buildLotsSection(BuildContext context) {
+    final lotNumbers = delivery.assignment!.allLotNumbers;
+    final detailsByNumber = {
+      for (final lot in delivery.lotDetails) lot.lotNumber: lot,
+    };
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Lots Details',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final lotNumber in lotNumbers)
+                ActionChip(
+                  avatar: const Icon(
+                    Icons.inventory_2_outlined,
+                    size: 18,
+                    color: AppTheme.primary,
+                  ),
+                  label: Text('Lot $lotNumber'),
+                  tooltip: 'View Lot $lotNumber details',
+                  onPressed: () => _showLotDetails(
+                    context,
+                    lotNumber,
+                    detailsByNumber[lotNumber],
+                  ),
+                  backgroundColor: Colors.white,
+                  side: BorderSide(
+                    color: AppTheme.primary.withValues(alpha: 0.35),
+                  ),
+                  labelStyle: const TextStyle(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showLotDetails(
+    BuildContext context,
+    String lotNumber,
+    DeliveryLotDetails? details,
+  ) {
+    final comment = details?.comment.trim() ?? '';
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.inventory_2_outlined,
+                    color: AppTheme.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Lot $lotNumber',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: comment.isEmpty
+                      ? AppTheme.primary.withValues(alpha: 0.06)
+                      : const Color(0xFFFFF3CD),
+                  borderRadius: BorderRadius.circular(12),
+                  border: comment.isEmpty
+                      ? null
+                      : Border.all(color: const Color(0xFFD99000), width: 2),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (comment.isNotEmpty) ...[
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: Color(0xFF8A4B00),
+                            size: 26,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Expanded(
+                          child: Text(
+                            comment.isEmpty
+                                ? 'Comment'
+                                : 'Important lot comment',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: comment.isEmpty
+                                  ? AppTheme.textSecondary
+                                  : const Color(0xFF8A4B00),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      comment.isEmpty
+                          ? 'No comment added for this lot.'
+                          : comment,
+                      style: TextStyle(
+                        fontSize: comment.isEmpty ? 14 : 16,
+                        fontWeight: comment.isEmpty
+                            ? FontWeight.normal
+                            : FontWeight.w700,
+                        height: 1.4,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (details?.description.trim().isNotEmpty == true) ...[
+                const SizedBox(height: 14),
+                _buildDetailRow(
+                  Icons.pets_outlined,
+                  details!.description.trim(),
+                ),
+              ],
+              if (details?.quantity != null) ...[
+                const SizedBox(height: 10),
+                _buildDetailRow(
+                  Icons.numbers_outlined,
+                  'Quantity: ${details!.quantity}',
+                ),
+              ],
+              if (details?.status.trim().isNotEmpty == true) ...[
+                const SizedBox(height: 10),
+                _buildDetailRow(
+                  Icons.check_circle_outline,
+                  'Status: ${details!.status.trim()}',
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -251,7 +430,7 @@ class DeliveryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPermitsSection(BuildContext context) {
+  Widget _buildDocumentsSection() {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -259,62 +438,10 @@ class DeliveryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.description_outlined,
-                size: 16,
-                color: AppTheme.primary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Permits (${delivery.permits.length})',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: delivery.permits
-                .asMap()
-                .entries
-                .map((entry) {
-                  final index = entry.key;
-                  final path = entry.value;
-                  final fileName = path.split('/').last;
-                  return ActionChip(
-                    avatar: const Icon(
-                      Icons.picture_as_pdf_outlined,
-                      size: 16,
-                      color: AppTheme.primary,
-                    ),
-                    label: Text(
-                      fileName.isNotEmpty ? fileName : 'Permit ${index + 1}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                    backgroundColor: Colors.white,
-                    side: BorderSide(
-                      color: AppTheme.primary.withValues(alpha: 0.3),
-                    ),
-                    onPressed: () => _openPermit(context, path),
-                  );
-                })
-                .toList(growable: false),
-          ),
-        ],
+      child: TripDocumentActions(
+        invoicePath: delivery.invoicePath,
+        permits: delivery.permits,
+        maps: delivery.maps,
       ),
     );
   }
@@ -338,28 +465,6 @@ class DeliveryCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _openPermit(BuildContext context, String permitPath) async {
-    try {
-      final uri = resolveInvoiceUri(Environment.apiBaseUrl, permitPath);
-      await showDocumentPreview(
-        context,
-        title: permitPath.split('/').last.isEmpty
-            ? 'Permit'
-            : permitPath.split('/').last,
-        uri: uri,
-      );
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open the permit file.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
   }
 
   String _statusLabel(DeliveryStatus status) => switch (status) {

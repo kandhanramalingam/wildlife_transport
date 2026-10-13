@@ -22,14 +22,29 @@ class TodayTab extends StatefulWidget {
 class _TodayTabState extends State<TodayTab> {
   late final TodayDeliveriesController _controller;
   late final DeliveryRepository _repository;
+  bool _resumingTracking = false;
+  late int _syncRevision;
 
   @override
   void initState() {
     super.initState();
     _repository = AppDependencies.createDeliveryRepository();
+    _syncRevision = AppDependencies.offloadingSyncService.syncRevision;
     _controller = AppDependencies.createTodayDeliveriesController()
       ..addListener(_onStateChanged)
       ..load();
+    AppDependencies.offloadingSyncService.addListener(_onOffloadingSyncChanged);
+  }
+
+  void _onOffloadingSyncChanged() {
+    _controller.applyPendingOffloading(
+      AppDependencies.offloadingSyncService.pendingDeliveryIds,
+    );
+    final revision = AppDependencies.offloadingSyncService.syncRevision;
+    if (revision != _syncRevision) {
+      _syncRevision = revision;
+      unawaited(_controller.load());
+    }
   }
 
   void _onStateChanged() {
@@ -40,16 +55,35 @@ class _TodayTabState extends State<TodayTab> {
       if (activeTrips.isEmpty) {
         unawaited(AppDependencies.tripLocationTracker.stop());
       } else {
-        unawaited(
-          AppDependencies.tripLocationTracker.start(activeTrips.first.id),
-        );
+        unawaited(_resumeTracking(activeTrips.first.id));
       }
     }
     if (mounted) setState(() {});
   }
 
+  Future<void> _resumeTracking(String deliveryId) async {
+    final tracker = AppDependencies.tripLocationTracker;
+    if (_resumingTracking ||
+        (tracker.activeDeliveryId == deliveryId && tracker.isActive)) {
+      return;
+    }
+    _resumingTracking = true;
+    try {
+      final allowed = await requestActiveDeliveryTrackingAccess(
+        context,
+        showDisclosure: false,
+      );
+      if (allowed && mounted) await tracker.start(deliveryId);
+    } finally {
+      _resumingTracking = false;
+    }
+  }
+
   @override
   void dispose() {
+    AppDependencies.offloadingSyncService.removeListener(
+      _onOffloadingSyncChanged,
+    );
     _controller
       ..removeListener(_onStateChanged)
       ..dispose();
@@ -59,7 +93,7 @@ class _TodayTabState extends State<TodayTab> {
   @override
   Widget build(BuildContext context) {
     final activeDeliveries = _controller.deliveries
-        .where((delivery) => !delivery.deliveryCompleted)
+        .where((delivery) => !delivery.completionSynced)
         .toList(growable: false);
 
     if (_controller.isLoading && activeDeliveries.isEmpty) {
@@ -146,6 +180,9 @@ class _TodayTabState extends State<TodayTab> {
             clientName: lot.clientName,
             clientAddress: lot.address,
             paymentStatus: delivery.paymentStatus,
+            invoicePath: lot.invoicePath,
+            permits: delivery.permits,
+            maps: delivery.maps,
             assignment: lot.assignment ?? delivery.assignment,
           ),
         ),
@@ -180,8 +217,8 @@ class _TodayTabState extends State<TodayTab> {
     }
     if (!delivery.allLotsLoaded) return;
 
-    await showLocationTrackingDisclosure(context);
-    if (!mounted) return;
+    final locationAllowed = await requestActiveDeliveryTrackingAccess(context);
+    if (!locationAllowed || !mounted) return;
 
     try {
       final updated = await _repository.startTrip(
@@ -241,7 +278,11 @@ class _TodayTabState extends State<TodayTab> {
     _controller.updateLots(delivery.id, updatedLots);
     final allCompleted =
         updatedLots.isNotEmpty &&
-        updatedLots.every((lot) => lot.deliveryCompleted);
+        updatedLots.every(
+          (lot) =>
+              lot.status == DeliveryStatus.completed &&
+              !lot.offloadingSyncPending,
+        );
     if (allCompleted) {
       _controller.markDeliveryCompleted(delivery.id);
       unawaited(
@@ -261,7 +302,9 @@ class _TodayTabState extends State<TodayTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            allCompleted
+            updatedLots.any((lot) => lot.offloadingSyncPending)
+                ? 'Off-loading saved. Awaiting sync to portal.'
+                : allCompleted
                 ? 'Delivery completed successfully.'
                 : 'Customer delivery completed.',
           ),

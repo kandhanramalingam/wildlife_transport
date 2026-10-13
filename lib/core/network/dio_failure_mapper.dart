@@ -25,6 +25,16 @@ Failure mapDioException(DioException exception) {
           message ?? 'Please check the submitted details',
         );
       }
+      if (statusCode == 404 &&
+          exception.requestOptions.path.contains('driver-auth/delivery/') &&
+          exception.requestOptions.path.endsWith('/complete-offloading') &&
+          message?.trim().toLowerCase() == 'delivery not found') {
+        return DeliveryNotFoundFailure(message!);
+      }
+      if (statusCode == 409 &&
+          message?.toLowerCase().contains('active trip state') == true) {
+        return InactiveTripFailure(message!);
+      }
       if (statusCode != null && statusCode >= 500) {
         return const ServerFailure();
       }

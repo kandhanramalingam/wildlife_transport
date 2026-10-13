@@ -108,6 +108,22 @@ class TripLocationTracker extends ChangeNotifier {
         final reading = _queue!.first;
         try {
           await _repository.submitDriverLocation(reading);
+        } on InactiveTripFailure {
+          final inactiveDeliveryId = reading.deliveryId;
+          _queue!.removeWhere(
+            (queued) => queued.deliveryId == inactiveDeliveryId,
+          );
+          await _queueStore.replace(_queue!);
+          pendingCount = _queue!.length;
+
+          if (activeDeliveryId == inactiveDeliveryId) {
+            await stop(deliveryId: inactiveDeliveryId);
+            break;
+          }
+
+          warningMessage = null;
+          notifyListeners();
+          continue;
         } catch (error) {
           warningMessage = _messageOf(error);
           notifyListeners();

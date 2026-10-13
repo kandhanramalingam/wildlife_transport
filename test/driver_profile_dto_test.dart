@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wildlife_transport/features/profile/data/driver_profile_dto.dart';
+import 'package:wildlife_transport/features/profile/screens/profile_screen.dart';
 
 void main() {
   test('parses driver profile and assigned vehicle', () {
@@ -34,5 +35,35 @@ void main() {
     expect(profile.vehicle!.registrationNumber, 'JN41LYGP');
     expect(profile.vehicle!.compartmentNumber, 3);
     expect(profile.vehicleCombination, isNull);
+  });
+
+  test('resolves a stored driver document filename through the file API', () {
+    expect(
+      resolveDriverDocumentUri(
+        'http://transport.wildlifeauctions.co.za:8081/',
+        'driver-id.pdf',
+      ).toString(),
+      'http://transport.wildlifeauctions.co.za:8081/file?name=driver-id.pdf',
+    );
+  });
+
+  test('keeps an absolute driver document URL unchanged', () {
+    expect(
+      resolveDriverDocumentUri(
+        'http://transport.wildlifeauctions.co.za:8081/',
+        'https://cdn.example.com/driver-licence.pdf',
+      ).toString(),
+      'https://cdn.example.com/driver-licence.pdf',
+    );
+  });
+
+  test('uses the protected file route for legacy driver document paths', () {
+    expect(
+      resolveDriverDocumentUri(
+        'http://transport.wildlifeauctions.co.za:8081/',
+        'upload/driver-id.pdf',
+      ).toString(),
+      'http://transport.wildlifeauctions.co.za:8081/file?name=driver-id.pdf',
+    );
   });
 }

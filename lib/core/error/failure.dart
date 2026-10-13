@@ -24,6 +24,16 @@ final class ValidationFailure extends Failure {
   const ValidationFailure(super.message);
 }
 
+final class DeliveryNotFoundFailure extends Failure {
+  const DeliveryNotFoundFailure([super.message = 'Delivery not found']);
+}
+
+final class InactiveTripFailure extends Failure {
+  const InactiveTripFailure([
+    super.message = 'Delivery is not in an active trip state',
+  ]);
+}
+
 final class ServerFailure extends Failure {
   const ServerFailure([
     super.message = 'Server error. Please try again later.',

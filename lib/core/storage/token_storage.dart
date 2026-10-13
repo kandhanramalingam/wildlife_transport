@@ -34,5 +34,10 @@ class SecureTokenStorage implements TokenStorage {
       _storage.write(key: _driverIdKey, value: driverId);
 
   @override
-  Future<void> clear() => _storage.deleteAll();
+  Future<void> clear() async {
+    // Preserve securely queued off-loading evidence when a session expires or
+    // the driver signs out. It must be retried after authentication returns.
+    await _storage.delete(key: _accessTokenKey);
+    await _storage.delete(key: _driverIdKey);
+  }
 }

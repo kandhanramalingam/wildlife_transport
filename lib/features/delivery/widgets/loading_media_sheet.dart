@@ -8,24 +8,55 @@ import '../screens/trip_customers_screen.dart';
 
 class LoadingMediaSheet extends StatelessWidget {
   final DeliveryModel delivery;
+  final String? lotNumber;
 
-  const LoadingMediaSheet({super.key, required this.delivery});
+  const LoadingMediaSheet({super.key, required this.delivery, this.lotNumber});
 
-  static void show(BuildContext context, DeliveryModel delivery) {
+  static void show(
+    BuildContext context,
+    DeliveryModel delivery, {
+    String? lotNumber,
+  }) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => LoadingMediaSheet(delivery: delivery),
+      builder: (_) =>
+          LoadingMediaSheet(delivery: delivery, lotNumber: lotNumber),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final vehiclePhotos = delivery.startVehiclePhotos;
-    final animalPhotos = delivery.startAnimalPhotos;
-    final videoPath = delivery.onLoadAnimalsVideo;
+    final selectedLot = lotNumber?.trim();
+    final isLotView = selectedLot?.isNotEmpty == true;
+    final lotMedia = isLotView
+        ? delivery.startMediaMetadata
+              .where((media) => media.belongsToLot(selectedLot!))
+              .toList(growable: false)
+        : const <DeliveryLoadingMedia>[];
+    final vehiclePhotos = isLotView
+        ? const <String>[]
+        : delivery.startVehiclePhotos;
+    final animalPhotos = isLotView
+        ? lotMedia
+              .where((media) => media.kind == 'animal_photo')
+              .map((media) => media.filePath)
+              .toList(growable: false)
+        : delivery.startAnimalPhotos;
+    final videoPaths = isLotView
+        ? lotMedia
+              .where((media) => media.kind == 'animal_video')
+              .map((media) => media.filePath)
+              .toList(growable: false)
+        : delivery.onLoadAnimalsVideos.isNotEmpty
+        ? delivery.onLoadAnimalsVideos
+        : [
+            if (delivery.onLoadAnimalsVideo?.trim().isNotEmpty == true)
+              delivery.onLoadAnimalsVideo!,
+          ];
     final totalPhotos = vehiclePhotos.length + animalPhotos.length;
+    final totalMedia = totalPhotos + videoPaths.length;
 
     return Container(
       constraints: BoxConstraints(
@@ -65,16 +96,20 @@ class LoadingMediaSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Loading Proof & Photos',
-                        style: TextStyle(
+                      Text(
+                        isLotView
+                            ? 'Lot $selectedLot Loading Media'
+                            : 'Loading Proof & Photos',
+                        style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.textPrimary,
                         ),
                       ),
                       Text(
-                        '$totalPhotos photo(s) captured at departure',
+                        isLotView
+                            ? '$totalMedia image/video file(s) captured during loading'
+                            : '$totalPhotos photo(s) captured at departure',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.textSecondary,
@@ -98,51 +133,65 @@ class LoadingMediaSheet extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (vehiclePhotos.isNotEmpty) ...[
-                    _buildSectionHeader('Vehicle Photos (${vehiclePhotos.length})', Icons.local_shipping_outlined),
+                    _buildSectionHeader(
+                      'Vehicle Photos (${vehiclePhotos.length})',
+                      Icons.local_shipping_outlined,
+                    ),
                     const SizedBox(height: 10),
                     _buildPhotoGrid(context, vehiclePhotos),
                     const SizedBox(height: 20),
                   ],
                   if (animalPhotos.isNotEmpty) ...[
-                    _buildSectionHeader('Animal Photos (${animalPhotos.length})', Icons.pets_outlined),
+                    _buildSectionHeader(
+                      'Animal Photos (${animalPhotos.length})',
+                      Icons.pets_outlined,
+                    ),
                     const SizedBox(height: 10),
                     _buildPhotoGrid(context, animalPhotos),
                     const SizedBox(height: 20),
                   ],
-                  if (videoPath != null && videoPath.isNotEmpty) ...[
-                    _buildSectionHeader('Loading Video Clip', Icons.videocam_outlined),
-                    const SizedBox(height: 10),
-                    Card(
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFFFFF3E0),
-                          child: Icon(Icons.play_arrow_rounded, color: Colors.orange),
-                        ),
-                        title: const Text(
-                          'Play Animal Loading Video',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          videoPath.split('/').last,
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                        ),
-                        trailing: const Icon(Icons.open_in_new, size: 18),
-                        onTap: () => _openUrl(context, videoPath),
-                      ),
+                  if (videoPaths.isNotEmpty) ...[
+                    _buildSectionHeader(
+                      'Animal Loading Videos (${videoPaths.length})',
+                      Icons.videocam_outlined,
                     ),
+                    const SizedBox(height: 10),
+                    for (var index = 0; index < videoPaths.length; index++)
+                      Card(
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        child: ListTile(
+                          leading: const CircleAvatar(
+                            backgroundColor: Color(0xFFFFF3E0),
+                            child: Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.orange,
+                            ),
+                          ),
+                          title: Text(
+                            'Play Lot Video ${index + 1}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          trailing: const Icon(Icons.open_in_new, size: 18),
+                          onTap: () => _openUrl(context, videoPaths[index]),
+                        ),
+                      ),
                   ],
-                  if (totalPhotos == 0 && (videoPath == null || videoPath.isEmpty))
-                    const Center(
+                  if (totalPhotos == 0 && videoPaths.isEmpty)
+                    Center(
                       child: Padding(
-                        padding: EdgeInsets.all(32),
+                        padding: const EdgeInsets.all(32),
                         child: Text(
-                          'No loading photos or videos uploaded for this delivery.',
-                          style: TextStyle(color: AppTheme.textSecondary),
+                          isLotView
+                              ? 'No loading images or videos were uploaded for this lot.'
+                              : 'No loading photos or videos uploaded for this delivery.',
+                          style: const TextStyle(color: AppTheme.textSecondary),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -186,7 +235,7 @@ class LoadingMediaSheet extends StatelessWidget {
       itemCount: photos.length,
       itemBuilder: (context, index) {
         final path = photos[index];
-        final uri = resolveInvoiceUri(Environment.apiBaseUrl, path);
+        final uri = _resolveMediaUri(path);
         return GestureDetector(
           onTap: () => _showFullScreenImage(context, uri.toString(), index + 1),
           child: ClipRRect(
@@ -199,7 +248,10 @@ class LoadingMediaSheet extends StatelessWidget {
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(
                     color: Colors.grey.shade200,
-                    child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                    child: const Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.grey,
+                    ),
                   ),
                   loadingBuilder: (context, child, progress) {
                     if (progress == null) return child;
@@ -219,14 +271,21 @@ class LoadingMediaSheet extends StatelessWidget {
                   bottom: 4,
                   right: 4,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       '#${index + 1}',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -254,7 +313,10 @@ class LoadingMediaSheet extends StatelessWidget {
                 imageUrl,
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) => const Center(
-                  child: Text('Could not load image', style: TextStyle(color: Colors.white)),
+                  child: Text(
+                    'Could not load image',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ),
             ),
@@ -274,7 +336,7 @@ class LoadingMediaSheet extends StatelessWidget {
 
   Future<void> _openUrl(BuildContext context, String path) async {
     try {
-      final uri = resolveInvoiceUri(Environment.apiBaseUrl, path);
+      final uri = _resolveMediaUri(path);
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {
       if (context.mounted) {
@@ -286,5 +348,11 @@ class LoadingMediaSheet extends StatelessWidget {
         );
       }
     }
+  }
+
+  Uri _resolveMediaUri(String path) {
+    final parsed = Uri.tryParse(path.trim());
+    if (parsed != null && parsed.hasScheme) return parsed;
+    return resolveInvoiceUri(Environment.apiBaseUrl, path);
   }
 }

@@ -32,10 +32,10 @@ enum DeliveryStatus {
       'at_delivery_point' => DeliveryStatus.atDeliveryPoint,
       'offloading_started' ||
       'off_loading_started' ||
-      'ended' ||
       'offloading' => DeliveryStatus.offloading,
       'offloading_completed' ||
       'off_loading_completed' ||
+      'ended' ||
       'completed' => DeliveryStatus.completed,
       _ => DeliveryStatus.pending,
     };
@@ -74,6 +74,37 @@ class PickupStop {
   });
 }
 
+class DeliveryLotDetails {
+  final String lotNumber;
+  final String description;
+  final int? quantity;
+  final String status;
+  final String comment;
+
+  const DeliveryLotDetails({
+    required this.lotNumber,
+    this.description = '',
+    this.quantity,
+    this.status = '',
+    this.comment = '',
+  });
+}
+
+class DeliveryLoadingMedia {
+  final String filePath;
+  final String kind;
+  final String? lotNumber;
+
+  const DeliveryLoadingMedia({
+    required this.filePath,
+    required this.kind,
+    this.lotNumber,
+  });
+
+  bool belongsToLot(String value) =>
+      lotNumber?.trim().toLowerCase() == value.trim().toLowerCase();
+}
+
 class DeliveryAssignment {
   final String driverId;
   final String driverName;
@@ -83,6 +114,7 @@ class DeliveryAssignment {
   final DeliveryStatus? status;
   final List<String> lotNumbers;
   final List<String> loadedLotNumbers;
+  final List<String> deliveredLotNumbers;
 
   const DeliveryAssignment({
     required this.driverId,
@@ -93,7 +125,14 @@ class DeliveryAssignment {
     this.status,
     this.lotNumbers = const [],
     this.loadedLotNumbers = const [],
+    this.deliveredLotNumbers = const [],
   });
+
+  List<String> get allLotNumbers => {
+    ...lotNumbers,
+    ...loadedLotNumbers,
+    ...deliveredLotNumbers,
+  }.toList(growable: false);
 
   String get vehicleLabel {
     if (vehicleRegistrationNumber.isNotEmpty) {
@@ -121,6 +160,7 @@ class DeliveryLot {
   final DeliveryStatus status;
   final DeliveryAssignment? assignment;
   final DateTime? customerLocationCapturedAt;
+  final bool offloadingSyncPending;
 
   const DeliveryLot({
     required this.clientName,
@@ -139,6 +179,7 @@ class DeliveryLot {
     this.status = DeliveryStatus.pending,
     this.assignment,
     this.customerLocationCapturedAt,
+    this.offloadingSyncPending = false,
   });
 
   bool get loadingCompleted => switch (status) {
@@ -149,7 +190,8 @@ class DeliveryLot {
     DeliveryStatus.completed => true,
     _ => false,
   };
-  bool get deliveryCompleted => status == DeliveryStatus.completed;
+  bool get deliveryCompleted =>
+      status == DeliveryStatus.completed || offloadingSyncPending;
   bool get atDeliveryPoint =>
       atDeliveryPointState ??
       (status == DeliveryStatus.atDeliveryPoint ||
@@ -165,6 +207,7 @@ class DeliveryLot {
     String? latitude,
     String? longitude,
     DateTime? customerLocationCapturedAt,
+    bool? offloadingSyncPending,
   }) {
     return DeliveryLot(
       clientName: clientName,
@@ -184,6 +227,8 @@ class DeliveryLot {
       assignment: assignment ?? this.assignment,
       customerLocationCapturedAt:
           customerLocationCapturedAt ?? this.customerLocationCapturedAt,
+      offloadingSyncPending:
+          offloadingSyncPending ?? this.offloadingSyncPending,
     );
   }
 }
@@ -212,10 +257,15 @@ class DeliveryModel {
   final List<String> balanceLotNumbers;
   final bool partialDelivery;
   final List<String> permits;
+  final List<String> maps;
+  final List<DeliveryLotDetails> lotDetails;
   final List<DeliveryAssignment> assignments;
   final List<String> startVehiclePhotos;
   final List<String> startAnimalPhotos;
   final String? onLoadAnimalsVideo;
+  final List<String> onLoadAnimalsVideos;
+  final List<DeliveryLoadingMedia> startMediaMetadata;
+  final bool offloadingSyncPending;
 
   const DeliveryModel({
     required this.id,
@@ -241,19 +291,26 @@ class DeliveryModel {
     this.balanceLotNumbers = const [],
     this.partialDelivery = false,
     this.permits = const [],
+    this.maps = const [],
+    this.lotDetails = const [],
     this.assignments = const [],
     this.startVehiclePhotos = const [],
     this.startAnimalPhotos = const [],
     this.onLoadAnimalsVideo,
+    this.onLoadAnimalsVideos = const [],
+    this.startMediaMetadata = const [],
+    this.offloadingSyncPending = false,
   });
 
   List<String> get allLoadingPhotos => [
-        ...startVehiclePhotos,
-        ...startAnimalPhotos,
-      ];
+    ...startVehiclePhotos,
+    ...startAnimalPhotos,
+  ];
 
   bool get hasLoadingMedia =>
       allLoadingPhotos.isNotEmpty ||
+      startMediaMetadata.isNotEmpty ||
+      onLoadAnimalsVideos.isNotEmpty ||
       (onLoadAnimalsVideo != null && onLoadAnimalsVideo!.isNotEmpty);
 
   bool get isMultiPickup =>
@@ -265,8 +322,7 @@ class DeliveryModel {
   bool get isPartial =>
       partialDelivery ||
       (totalLots > 0 &&
-          (assignedLots < totalLots ||
-              (deliveredLots > 0 && balanceLots > 0)));
+          (assignedLots < totalLots || (deliveredLots > 0 && balanceLots > 0)));
 
   String get partialProgressLabel => '$deliveredLots / $totalLots';
 
@@ -277,14 +333,22 @@ class DeliveryModel {
   bool get allLotsLoaded =>
       lots.isEmpty || lots.every((lot) => lot.loadingCompleted);
 
-  bool get deliveryCompleted =>
-      status == DeliveryStatus.completed ||
-      (lots.isNotEmpty && lots.every((lot) => lot.deliveryCompleted));
+  bool get deliveryCompleted => lots.isNotEmpty
+      ? lots.every((lot) => lot.deliveryCompleted)
+      : status == DeliveryStatus.completed || offloadingSyncPending;
+
+  bool get hasPendingOffloading =>
+      offloadingSyncPending || lots.any((lot) => lot.offloadingSyncPending);
+
+  /// Only a server-confirmed completion belongs in the Completed tab. Locally
+  /// captured offloading remains available in Today until its upload succeeds.
+  bool get completionSynced => !hasPendingOffloading && deliveryCompleted;
 
   bool get tripStarted =>
       (status == DeliveryStatus.inProgress ||
           status == DeliveryStatus.atDeliveryPoint ||
-          status == DeliveryStatus.offloading) &&
+          status == DeliveryStatus.offloading ||
+          (status == DeliveryStatus.completed && !deliveryCompleted)) &&
       allLotsLoaded;
 
   int get nextLoadingOrder {
@@ -311,12 +375,21 @@ class DeliveryModel {
 
   int get deliveryCount => lots.isEmpty ? 1 : lots.length;
 
-  int get completedDeliveryCount => deliveryCompleted
-      ? deliveryCount
-      : lots.where((lot) => lot.deliveryCompleted).length;
+  int get completedDeliveryCount => lots.isEmpty
+      ? (status == DeliveryStatus.completed && !offloadingSyncPending ? 1 : 0)
+      : lots
+            .where(
+              (lot) =>
+                  lot.status == DeliveryStatus.completed &&
+                  !lot.offloadingSyncPending,
+            )
+            .length;
 
-  String get deliveryProgressLabel =>
-      '$completedDeliveryCount/$deliveryCount Delivery Completed';
+  String get deliveryProgressLabel {
+    final completed =
+        '$completedDeliveryCount/$deliveryCount Delivery Completed';
+    return hasPendingOffloading ? '$completed • Awaiting sync' : completed;
+  }
 
   String get assignedVehicleId => assignment?.vehicleId ?? '';
 
@@ -332,11 +405,16 @@ class DeliveryModel {
     List<String>? balanceLotNumbers,
     List<PickupStop>? pickupStops,
     List<String>? permits,
+    List<String>? maps,
+    List<DeliveryLotDetails>? lotDetails,
     List<DeliveryAssignment>? assignments,
     DeliveryAssignment? assignment,
     List<String>? startVehiclePhotos,
     List<String>? startAnimalPhotos,
     String? onLoadAnimalsVideo,
+    List<String>? onLoadAnimalsVideos,
+    List<DeliveryLoadingMedia>? startMediaMetadata,
+    bool? offloadingSyncPending,
   }) {
     return DeliveryModel(
       id: id,
@@ -362,10 +440,16 @@ class DeliveryModel {
       balanceLotNumbers: balanceLotNumbers ?? this.balanceLotNumbers,
       partialDelivery: partialDelivery ?? this.partialDelivery,
       permits: permits ?? this.permits,
+      maps: maps ?? this.maps,
+      lotDetails: lotDetails ?? this.lotDetails,
       assignments: assignments ?? this.assignments,
       startVehiclePhotos: startVehiclePhotos ?? this.startVehiclePhotos,
       startAnimalPhotos: startAnimalPhotos ?? this.startAnimalPhotos,
       onLoadAnimalsVideo: onLoadAnimalsVideo ?? this.onLoadAnimalsVideo,
+      onLoadAnimalsVideos: onLoadAnimalsVideos ?? this.onLoadAnimalsVideos,
+      startMediaMetadata: startMediaMetadata ?? this.startMediaMetadata,
+      offloadingSyncPending:
+          offloadingSyncPending ?? this.offloadingSyncPending,
     );
   }
 }

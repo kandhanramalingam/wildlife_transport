@@ -32,12 +32,7 @@ Future<CurrentCoordinates> getCurrentCoordinates() async {
 
   var permission = await Geolocator.checkPermission();
   if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
-  }
-  if (permission == LocationPermission.denied) {
-    throw const CurrentLocationException(
-      'Location permission is required to start the trip.',
-    );
+    throw const CurrentLocationException('Allow location access to continue.');
   }
   if (permission == LocationPermission.deniedForever) {
     throw const CurrentLocationException(

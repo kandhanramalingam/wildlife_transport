@@ -30,6 +30,69 @@ void main() {
     expect(controller.deliveries, [_completedDelivery]);
     controller.dispose();
   });
+
+  test(
+    'queued offloading stays awaiting sync instead of server-completed after reload',
+    () async {
+      final repository = _ScheduleRepository([
+        DeliveryModel(
+          id: 'trip-1',
+          dateTime: DateTime(2026, 9, 30),
+          clientName: 'Buyer',
+          clientAddress: 'Farm',
+          status: DeliveryStatus.offloading,
+          lots: const [
+            DeliveryLot(
+              clientName: 'Buyer',
+              buyerId: 'buyer-1',
+              mainBuyer: true,
+              deliveryId: 'delivery-queued',
+              address: 'Farm',
+              status: DeliveryStatus.offloading,
+            ),
+          ],
+        ),
+      ]);
+      final controller = TodayDeliveriesController(
+        repository,
+        pendingOffloadingIds: () => {'delivery-queued'},
+      );
+
+      await controller.load();
+
+      expect(controller.deliveries.single.deliveryCompleted, isTrue);
+      expect(controller.deliveries.single.status, DeliveryStatus.offloading);
+      expect(controller.deliveries.single.completedDeliveryCount, 0);
+      expect(
+        controller.deliveries.single.deliveryProgressLabel,
+        contains('Awaiting sync'),
+      );
+      expect(
+        controller.deliveries.single.lots.single.offloadingSyncPending,
+        isTrue,
+      );
+      controller.applyPendingOffloading({});
+      expect(controller.deliveries.single.hasPendingOffloading, isFalse);
+      controller.dispose();
+    },
+  );
+
+  test('a queued single delivery keeps its server status', () async {
+    final repository = _ScheduleRepository([
+      _completedDelivery.copyWith(status: DeliveryStatus.offloading),
+    ]);
+    final controller = TodayDeliveriesController(
+      repository,
+      pendingOffloadingIds: () => {'delivery-1'},
+    );
+    await controller.load();
+    expect(controller.deliveries.single.status, DeliveryStatus.offloading);
+    expect(controller.deliveries.single.offloadingSyncPending, isTrue);
+    expect(controller.deliveries.single.completedDeliveryCount, 0);
+    controller.applyPendingOffloading({});
+    expect(controller.deliveries.single.offloadingSyncPending, isFalse);
+    controller.dispose();
+  });
 }
 
 final _completedDelivery = DeliveryModel(
@@ -120,4 +183,15 @@ class _OverlappingScheduleRepository implements DeliveryRepository {
     accuracyMetres: capture.accuracyMetres,
     capturedAt: capture.capturedAt,
   );
+}
+
+class _ScheduleRepository extends _OverlappingScheduleRepository {
+  final List<DeliveryModel> result;
+
+  _ScheduleRepository(this.result);
+
+  @override
+  Future<List<DeliveryModel>> getTodaySchedule({
+    CancelToken? cancelToken,
+  }) async => result;
 }

@@ -11,13 +11,14 @@ import 'package:wildlife_transport/features/delivery/models/delivery_model.dart'
 import 'package:wildlife_transport/features/delivery/models/location_tracking.dart';
 import 'package:wildlife_transport/features/delivery/models/start_delivery_submission.dart';
 
-PhotoMeta capture(String name, int minute) => PhotoMeta(
+PhotoMeta capture(String name, int minute, {String? lotNumber}) => PhotoMeta(
   photo: XFile.fromData(Uint8List.fromList([minute]), name: name, path: name),
   dateTime: DateTime.parse(
     '2026-09-05T12:${minute.toString().padLeft(2, '0')}:00+05:30',
   ),
   latitude: -25.0 - minute,
   longitude: 28.0 + minute,
+  lotNumber: lotNumber,
 );
 
 void main() {
@@ -34,7 +35,20 @@ void main() {
             capture('vehicle2.jpg', 2),
           ],
           startAnimalPhotos: [capture('animal.jpg', 3)],
-          onLoadAnimalsVideo: capture('animals.mp4', 4),
+          onLoadAnimalsVideos: [
+            capture('animals-lot-101.mp4', 4, lotNumber: '101'),
+            PhotoMeta(
+              photo: XFile.fromData(
+                Uint8List.fromList([5]),
+                name: 'animals-lot-102.mp4',
+                path: 'animals-lot-102.mp4',
+              ),
+              dateTime: DateTime.parse('2026-09-05T12:05:00+05:30'),
+              latitude: -30,
+              longitude: 33,
+              lotNumber: '102',
+            ),
+          ],
           startLatitude: '-29',
           startLongitude: '32',
           vehicleChecklist: [],
@@ -48,60 +62,74 @@ void main() {
         'uploads/vehicle1.jpg',
         'uploads/vehicle2.jpg',
         'uploads/animal.jpg',
-        'uploads/animals.mp4',
+        'uploads/animals-lot-101.mp4',
+        'uploads/animals-lot-102.mp4',
       ]);
       expect(metadata.map((m) => m['kind']), [
         'vehicle_photo',
         'vehicle_photo',
         'animal_photo',
         'animal_video',
+        'animal_video',
       ]);
-      expect(metadata.map((m) => m['latitude']), [-26.0, -27.0, -28.0, -29.0]);
+      expect(metadata.map((m) => m['latitude']), [
+        -26.0,
+        -27.0,
+        -28.0,
+        -29.0,
+        -30.0,
+      ]);
       expect(metadata.map((m) => m['capturedAt']), [
-        for (var i = 1; i <= 4; i++) '2026-09-05T06:3$i:00.000Z',
+        for (var i = 1; i <= 5; i++) '2026-09-05T06:3$i:00.000Z',
+      ]);
+      expect(metadata.last['lotNumber'], '102');
+      expect(source.startBody?['onLoadAnimalsVideos'], [
+        'uploads/animals-lot-101.mp4',
+        'uploads/animals-lot-102.mp4',
       ]);
     },
   );
-  test('completing off-loading persists the completed status', () async {
-    final dataSource = _RecordingDeliveryDataSource();
-    final repository = DeliveryRepositoryImpl(dataSource);
+  test(
+    'completing off-loading uses the authoritative completion request once',
+    () async {
+      final dataSource = _RecordingDeliveryDataSource();
+      final repository = DeliveryRepositoryImpl(dataSource);
 
-    await repository.completeOffloading(
-      'delivery-1',
-      CompleteOffloadingSubmission(
-        endAnimalPhotos: [capture('animal.jpg', 1)],
-        endAnimalVideos: capture('offloading.mp4', 2),
-        offLoadChecklist: const [
-          DeliveryChecklistItem(item: 'Animals checked', checked: true),
-        ],
-        clientSignature: Uint8List.fromList([3]),
-        endOdometerReading: 1200,
-        buyerId: 'buyer-1',
-      ),
-      vehicleId: 'vehicle-1',
-    );
+      await repository.completeOffloading(
+        'delivery-1',
+        CompleteOffloadingSubmission(
+          endAnimalPhotos: [capture('animal.jpg', 1)],
+          endAnimalVideos: capture('offloading.mp4', 2),
+          offLoadChecklist: const [
+            DeliveryChecklistItem(item: 'Animals checked', checked: true),
+          ],
+          clientSignature: Uint8List.fromList([3]),
+          endOdometerReading: 1200,
+          buyerId: 'buyer-1',
+        ),
+        vehicleId: 'vehicle-1',
+      );
 
-    expect(dataSource.endedDeliveryId, 'delivery-1');
-    expect(dataSource.endBody?['endMediaMetadata'], [
-      {
-        'filePath': 'uploads/animal.jpg',
-        'kind': 'animal_photo',
-        'capturedAt': '2026-09-05T06:31:00.000Z',
-        'latitude': -26.0,
-        'longitude': 29.0,
-      },
-      {
-        'filePath': 'uploads/offloading.mp4',
-        'kind': 'animal_video',
-        'capturedAt': '2026-09-05T06:32:00.000Z',
-        'latitude': -27.0,
-        'longitude': 30.0,
-      },
-    ]);
-    expect(dataSource.statusUpdates, [
-      ('delivery-1', DeliveryStatusUpdate.completed, 'vehicle-1'),
-    ]);
-  });
+      expect(dataSource.endedDeliveryId, 'delivery-1');
+      expect(dataSource.endBody?['endMediaMetadata'], [
+        {
+          'filePath': 'uploads/animal.jpg',
+          'kind': 'animal_photo',
+          'capturedAt': '2026-09-05T06:31:00.000Z',
+          'latitude': -26.0,
+          'longitude': 29.0,
+        },
+        {
+          'filePath': 'uploads/offloading.mp4',
+          'kind': 'animal_video',
+          'capturedAt': '2026-09-05T06:32:00.000Z',
+          'latitude': -27.0,
+          'longitude': 30.0,
+        },
+      ]);
+      expect(dataSource.statusUpdates, isEmpty);
+    },
+  );
 }
 
 class _RecordingDeliveryDataSource implements DeliveryRemoteDataSource {
@@ -121,10 +149,21 @@ class _RecordingDeliveryDataSource implements DeliveryRemoteDataSource {
   }
 
   @override
+  Future<DeliveryScheduleDto?> completeOffloading(
+    String deliveryId,
+    Map<String, dynamic> body,
+  ) async {
+    endedDeliveryId = deliveryId;
+    endBody = body;
+    return null;
+  }
+
+  @override
   Future<DeliveryScheduleDto?> updateStatus(
     String deliveryId,
     DeliveryStatusUpdate status, {
     String? vehicleId,
+    bool offlineReplay = false,
   }) async {
     statusUpdates.add((deliveryId, status, vehicleId));
     return null;

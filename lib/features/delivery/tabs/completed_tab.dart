@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/di/app_dependencies.dart';
@@ -6,7 +8,9 @@ import '../presentation/today_deliveries_controller.dart';
 import '../widgets/delivery_card.dart';
 
 class CompletedTab extends StatefulWidget {
-  const CompletedTab({super.key});
+  final TodayDeliveriesController? controller;
+
+  const CompletedTab({super.key, this.controller});
 
   @override
   State<CompletedTab> createState() => CompletedTabState();
@@ -14,13 +18,26 @@ class CompletedTab extends StatefulWidget {
 
 class CompletedTabState extends State<CompletedTab> {
   late final TodayDeliveriesController _controller;
+  late int _syncRevision;
 
   @override
   void initState() {
     super.initState();
-    _controller = AppDependencies.createTodayDeliveriesController()
-      ..addListener(_onStateChanged)
-      ..load();
+    _syncRevision = AppDependencies.offloadingSyncService.syncRevision;
+    _controller =
+        (widget.controller ?? AppDependencies.createTodayDeliveriesController())
+          ..addListener(_onStateChanged)
+          ..load();
+    AppDependencies.offloadingSyncService.addListener(_onOffloadingSyncChanged);
+  }
+
+  void _onOffloadingSyncChanged() {
+    final sync = AppDependencies.offloadingSyncService;
+    _controller.applyPendingOffloading(sync.pendingDeliveryIds);
+    if (_syncRevision != sync.syncRevision) {
+      _syncRevision = sync.syncRevision;
+      unawaited(_controller.load());
+    }
   }
 
   void _onStateChanged() {
@@ -34,6 +51,9 @@ class CompletedTabState extends State<CompletedTab> {
 
   @override
   void dispose() {
+    AppDependencies.offloadingSyncService.removeListener(
+      _onOffloadingSyncChanged,
+    );
     _controller
       ..removeListener(_onStateChanged)
       ..dispose();
@@ -43,7 +63,7 @@ class CompletedTabState extends State<CompletedTab> {
   @override
   Widget build(BuildContext context) {
     final completedDeliveries = _controller.deliveries
-        .where((delivery) => delivery.deliveryCompleted)
+        .where((delivery) => delivery.completionSynced)
         .toList(growable: false);
 
     if (_controller.isLoading && completedDeliveries.isEmpty) {

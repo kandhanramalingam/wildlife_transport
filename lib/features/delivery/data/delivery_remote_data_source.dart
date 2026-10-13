@@ -17,12 +17,17 @@ abstract interface class DeliveryRemoteDataSource {
     String deliveryId,
     DeliveryStatusUpdate status, {
     String? vehicleId,
+    bool offlineReplay = false,
   });
   Future<DeliveryScheduleDto?> startDelivery(
     String deliveryId,
     Map<String, dynamic> body,
   );
   Future<DeliveryScheduleDto?> endDelivery(
+    String deliveryId,
+    Map<String, dynamic> body,
+  );
+  Future<DeliveryScheduleDto?> completeOffloading(
     String deliveryId,
     Map<String, dynamic> body,
   );
@@ -61,6 +66,7 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
     String deliveryId,
     DeliveryStatusUpdate status, {
     String? vehicleId,
+    bool offlineReplay = false,
   }) async {
     final normalizedVehicleId = vehicleId?.trim() ?? '';
     final response = await _dio.patch<dynamic>(
@@ -68,8 +74,12 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
       data: {
         'status': status.apiValue,
         if (normalizedVehicleId.isNotEmpty) 'vehicleId': normalizedVehicleId,
+        if (offlineReplay) 'offlineReplay': true,
       },
     );
+    // Replaying a saved status only needs the HTTP acknowledgement. A legacy
+    // response shape must not block the evidence submission that follows it.
+    if (offlineReplay) return null;
     final data = response.data;
     if (data is Map<String, dynamic>) {
       return DeliveryScheduleDto.fromJson(
@@ -87,6 +97,10 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
   ) async {
     final response = await _dio.post<Map<String, dynamic>>(
       path,
+      options: Options(
+        sendTimeout: const Duration(minutes: 3),
+        receiveTimeout: const Duration(minutes: 1),
+      ),
       data: FormData.fromMap({
         'file': MultipartFile.fromBytes(bytes, filename: filename),
       }),
@@ -128,10 +142,43 @@ class DioDeliveryRemoteDataSource implements DeliveryRemoteDataSource {
     );
     final data = response.data;
     if (data is Map<String, dynamic>) {
-      return DeliveryScheduleDto.fromJson(
-        data,
-        authenticatedDriverId: _authenticatedDriverId?.call(),
-      );
+      try {
+        return DeliveryScheduleDto.fromJson(
+          data,
+          authenticatedDriverId: _authenticatedDriverId?.call(),
+        );
+      } on FormatException {
+        // The HTTP mutation succeeded. A legacy/incomplete response must not
+        // leave the driver trapped on an already-completed delivery screen.
+        return null;
+      } on TypeError {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<DeliveryScheduleDto?> completeOffloading(
+    String deliveryId,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _dio.post<dynamic>(
+      'driver-auth/delivery/$deliveryId/complete-offloading',
+      data: body,
+    );
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      try {
+        return DeliveryScheduleDto.fromJson(
+          data,
+          authenticatedDriverId: _authenticatedDriverId?.call(),
+        );
+      } on FormatException {
+        return null;
+      } on TypeError {
+        return null;
+      }
     }
     return null;
   }

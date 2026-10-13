@@ -6,6 +6,40 @@ import 'package:wildlife_transport/features/delivery/models/location_tracking.da
 
 void main() {
   test(
+    'saved status replay acknowledges a legacy response without parsing it',
+    () async {
+      RequestOptions? request;
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test/'));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            request = options;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {'deliveryStatus': 'arrived_at_location'},
+              ),
+            );
+          },
+        ),
+      );
+      final result = await DioDeliveryRemoteDataSource(dio).updateStatus(
+        'delivery-1',
+        DeliveryStatusUpdate.arrivedAtLocation,
+        vehicleId: 'vehicle-1',
+        offlineReplay: true,
+      );
+      expect(result, isNull);
+      expect(request!.data, {
+        'status': 'arrived_at_location',
+        'vehicleId': 'vehicle-1',
+        'offlineReplay': true,
+      });
+    },
+  );
+
+  test(
     'uses the delivery lifecycle endpoint paths and request bodies',
     () async {
       final requests = <RequestOptions>[];
@@ -29,11 +63,13 @@ void main() {
       );
       await dataSource.startDelivery('delivery-1', {'loading': true});
       await dataSource.endDelivery('delivery-1', {'offloading': true});
+      await dataSource.completeOffloading('delivery-1', {'completed': true});
 
       expect(requests.map((request) => request.path), [
         'driver-auth/delivery/delivery-1/status',
         'driver-auth/delivery/delivery-1/start',
         'driver-auth/delivery/delivery-1/end',
+        'driver-auth/delivery/delivery-1/complete-offloading',
       ]);
       expect(requests[0].method, 'PATCH');
       expect(requests[0].data, {
@@ -42,6 +78,7 @@ void main() {
       });
       expect(requests[1].data, {'loading': true});
       expect(requests[2].data, {'offloading': true});
+      expect(requests[3].data, {'completed': true});
     },
   );
 
@@ -108,4 +145,28 @@ void main() {
     expect(requests[1].method, 'PUT');
     expect(requests[1].data['buyerId'], 'buyer-1');
   });
+
+  test(
+    'treats an accepted end request with a legacy response as successful',
+    () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test/'));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) => handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {'deliveryStatus': 'completed'},
+            ),
+          ),
+        ),
+      );
+
+      final result = await DioDeliveryRemoteDataSource(
+        dio,
+      ).endDelivery('delivery-1', {'offloading': true});
+
+      expect(result, isNull);
+    },
+  );
 }

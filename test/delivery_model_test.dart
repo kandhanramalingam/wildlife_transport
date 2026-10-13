@@ -31,6 +31,7 @@ void main() {
     );
     expect(DeliveryStatus.fromApi('trip_started'), DeliveryStatus.inProgress);
     expect(DeliveryStatus.fromApi('in_delivery'), DeliveryStatus.inProgress);
+    expect(DeliveryStatus.fromApi('ended'), DeliveryStatus.completed);
     expect(
       DeliveryStatus.fromApi('offloading_started'),
       DeliveryStatus.offloading,
@@ -118,8 +119,13 @@ void main() {
     expect(delivery.deliveryProgressLabel, '1/2 Delivery Completed');
     expect(
       delivery.copyWith(status: DeliveryStatus.completed).deliveryProgressLabel,
-      '2/2 Delivery Completed',
+      '1/2 Delivery Completed',
     );
+    final mainBuyerFinished = delivery.copyWith(
+      status: DeliveryStatus.completed,
+    );
+    expect(mainBuyerFinished.deliveryCompleted, isFalse);
+    expect(mainBuyerFinished.tripStarted, isTrue);
   });
 
   test('delivery is complete when every combined lot is complete', () {
@@ -273,4 +279,3 @@ void main() {
     expect(delivery.balanceLotsLabel, '0 Remaining');
   });
 }
-

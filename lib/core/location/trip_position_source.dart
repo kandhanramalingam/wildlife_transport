@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import 'current_location.dart';
 
@@ -43,9 +42,6 @@ class GeolocatorTripPositionSource implements TripPositionSource {
     }
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.denied) {
       throw const CurrentLocationException(
         'Location permission is required to track the active delivery.',
       );
@@ -57,13 +53,10 @@ class GeolocatorTripPositionSource implements TripPositionSource {
             : 'Enable location permission in device settings to track deliveries.',
       );
     }
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      final notificationPermission = await Permission.notification.status;
-      if (notificationPermission.isDenied) {
-        await Permission.notification.request();
-      }
-    }
-    return permission == LocationPermission.always;
+    // Android location foreground services retain access after the app is
+    // backgrounded. Only Apple requires the separate Always grant here.
+    return (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) ||
+        permission == LocationPermission.always;
   }
 
   @override

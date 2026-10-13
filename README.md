@@ -20,6 +20,10 @@ flutter build apk --debug --dart-define-from-file=config/dev.json \
 --dart-define-from-file=config/maps.local.json
 ```
 
+Every requested APK must use a newly incremented version and be copied to the
+repository root as `AWA-Transport-v<version>-debug.apk` (or `-release.apk`).
+The Profile screen version must match the version in `pubspec.yaml`.
+
 The configured base URL is `http://transport.wildlifeauctions.co.za:8081`.
 Environment URLs live in configuration files and are supplied as compile-time
 defines rather than being hardcoded in Dart source.
