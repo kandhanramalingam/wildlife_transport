@@ -34,6 +34,7 @@ void main() {
           MaterialApp(
             home: Scaffold(
               body: GameLoadingChecklistStep(
+                key: ValueKey(isOffLoading),
                 onNext: (_) {},
                 isOffLoading: isOffLoading,
               ),

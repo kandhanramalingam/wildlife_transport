@@ -7,6 +7,7 @@ class DrivingRoute {
   final List<String> instructions;
   final List<String> warnings;
   final List<DrivingStep> steps;
+  final List<DrivingRoute> alternatives;
   const DrivingRoute({
     required this.points,
     required this.distanceMetres,
@@ -14,6 +15,7 @@ class DrivingRoute {
     required this.instructions,
     required this.warnings,
     this.steps = const [],
+    this.alternatives = const [],
   });
 
   factory DrivingRoute.fromJson(Map<String, dynamic> json) {
@@ -36,6 +38,13 @@ class DrivingRoute {
       throw const FormatException('No driving route found');
     }
     return DrivingRoute(
+      alternatives: (json['routes'] as List? ?? [])
+          .skip(1)
+          .map(
+            (value) =>
+                DrivingRoute.fromJson(Map<String, dynamic>.from(value as Map)),
+          )
+          .toList(growable: false),
       points: points,
       distanceMetres: (json['distanceMetres'] as num).toDouble(),
       durationSeconds: (json['durationSeconds'] as num).toDouble(),

@@ -4,6 +4,35 @@ import 'package:wildlife_transport/features/delivery/models/delivery_model.dart'
 import 'package:wildlife_transport/features/delivery/widgets/delivery_card.dart';
 
 void main() {
+  testWidgets('highlights lot comments directly on the Home delivery card', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DeliveryCard(
+              delivery: _delivery().copyWith(
+                lotDetails: const [
+                  DeliveryLotDetails(
+                    lotNumber: '7',
+                    comment: 'Use the north gate',
+                  ),
+                ],
+              ),
+              onStartLoading: (_) {},
+              onStartTrip: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(
+      find.text('Important comment • Lot 7\nUse the north gate'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'queued evidence is labelled awaiting sync rather than completed',
     (tester) async {

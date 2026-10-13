@@ -517,7 +517,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
-              await AppDependencies.sessionController.logout();
+              final reason = await AppDependencies.sessionController
+                  .requestLogout();
+              if (reason != null && mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(reason)));
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Logout'),

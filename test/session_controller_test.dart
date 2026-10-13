@@ -5,6 +5,31 @@ import 'package:wildlife_transport/core/storage/token_storage.dart';
 import 'package:wildlife_transport/features/auth/presentation/session_controller.dart';
 
 void main() {
+  test(
+    'manual logout preserves authentication while a delivery is active',
+    () async {
+      final storage = _MemoryTokenStorage(
+        _jwt(DateTime.now().add(const Duration(hours: 1))),
+        'driver-1',
+      );
+      var blocked = true;
+      final controller = SessionController(
+        storage,
+        logoutBlockReason: () async =>
+            blocked ? 'Finish your active delivery before logging out.' : null,
+      );
+      await controller.initialize();
+      expect(await controller.requestLogout(), contains('active delivery'));
+      expect(controller.status, SessionStatus.authenticated);
+      expect(storage.token, isNotNull);
+      blocked = false;
+      expect(await controller.requestLogout(), isNull);
+      expect(controller.status, SessionStatus.unauthenticated);
+      expect(storage.token, isNull);
+      controller.dispose();
+    },
+  );
+
   test('restores a session when the stored JWT is not expired', () async {
     final storage = _MemoryTokenStorage(
       _jwt(DateTime.now().add(const Duration(hours: 1))),

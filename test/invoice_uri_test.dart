@@ -73,7 +73,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.picture_as_pdf_outlined));
     await tester.pump();
 
-    expect(find.text('Invoice'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(Dialog), matching: find.text('Invoice')),
+      findsOneWidget,
+    );
     expect(find.text(fileName), findsNothing);
   });
 

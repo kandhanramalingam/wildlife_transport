@@ -55,6 +55,22 @@ class LoadingMediaSheet extends StatelessWidget {
             if (delivery.onLoadAnimalsVideo?.trim().isNotEmpty == true)
               delivery.onLoadAnimalsVideo!,
           ];
+    final taggedPaths = delivery.startMediaMetadata
+        .where((media) => media.lotNumber?.trim().isNotEmpty == true)
+        .map((media) => media.filePath)
+        .toSet();
+    final unassignedPhotos = isLotView
+        ? delivery.startAnimalPhotos
+              .where((path) => !taggedPaths.contains(path))
+              .toList()
+        : const <String>[];
+    final unassignedVideos = isLotView
+        ? [
+            ...delivery.onLoadAnimalsVideos,
+            if (delivery.onLoadAnimalsVideo?.isNotEmpty == true)
+              delivery.onLoadAnimalsVideo!,
+          ].where((path) => !taggedPaths.contains(path)).toSet().toList()
+        : const <String>[];
     final totalPhotos = vehiclePhotos.length + animalPhotos.length;
     final totalMedia = totalPhotos + videoPaths.length;
 
@@ -183,7 +199,30 @@ class LoadingMediaSheet extends StatelessWidget {
                         ),
                       ),
                   ],
-                  if (totalPhotos == 0 && videoPaths.isEmpty)
+                  if (unassignedPhotos.isNotEmpty ||
+                      unassignedVideos.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Other loading media — lot not recorded',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const Text('These older uploads do not identify a lot.'),
+                    const SizedBox(height: 10),
+                    if (unassignedPhotos.isNotEmpty)
+                      _buildPhotoGrid(context, unassignedPhotos),
+                    for (final path in unassignedVideos)
+                      ListTile(
+                        leading: const Icon(Icons.play_arrow),
+                        title: const Text(
+                          'Play loading video (lot not recorded)',
+                        ),
+                        onTap: () => _openUrl(context, path),
+                      ),
+                  ],
+                  if (totalPhotos == 0 &&
+                      videoPaths.isEmpty &&
+                      unassignedPhotos.isEmpty &&
+                      unassignedVideos.isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(32),

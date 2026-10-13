@@ -29,6 +29,16 @@ class CustomerNavigationController extends ChangeNotifier {
   LatLng? position;
   double heading = 0;
   DrivingRoute? route;
+  List<DrivingRoute> routes = const [];
+  bool _selectedByDriver = false;
+
+  void selectRoute(int index) {
+    if (loading || navigating || index < 0 || index >= routes.length) return;
+    route = routes[index];
+    _selectedByDriver = true;
+    _progress = 0;
+    notifyListeners();
+  }
 
   CustomerNavigationController({
     required this.destination,
@@ -108,7 +118,7 @@ class CustomerNavigationController extends ChangeNotifier {
               _progress,
         );
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool preserveSelectedRoute = false}) async {
     if (loading || _disposed) return;
     loading = true;
     error = null;
@@ -123,7 +133,18 @@ class CustomerNavigationController extends ChangeNotifier {
       }
       locating = false;
       notifyListeners();
-      await _requestRoute(generation);
+      final selected = route;
+      if (preserveSelectedRoute &&
+          _selectedByDriver &&
+          selected != null &&
+          _match(position!, selected.points).offset < 60) {
+        final match = _match(position!, selected.points);
+        _progress = match.total > 0
+            ? selected.distanceMetres * match.along / match.total
+            : 0;
+      } else {
+        await _requestRoute(generation);
+      }
     } catch (e) {
       if (!_disposed && generation == _generation) {
         error = _message(e, locating: locating);
@@ -138,7 +159,8 @@ class CustomerNavigationController extends ChangeNotifier {
 
   Future<void> start() async {
     if (navigating || loading || _disposed) return;
-    await refresh(); // Always start from a fresh GPS fix, not the preview's origin.
+    // Get fresh GPS while retaining the road the driver chose in the overview.
+    await refresh(preserveSelectedRoute: true);
     if (_disposed || error != null || route == null) return;
     arrived = false;
     navigating = true;
@@ -210,8 +232,9 @@ class CustomerNavigationController extends ChangeNotifier {
       );
     }
     notifyListeners();
-    // Bound API usage while keeping a moving driver's route and ETA fresh.
+    // Keep the chosen route while on it; request new directions after deviation.
     if (!loading &&
+        (match == null || match.offset >= 60) &&
         (_lastRequest == null ||
             now().difference(_lastRequest!) >= const Duration(seconds: 30)) &&
         (_routeOrigin == null || _distance(point, _routeOrigin!) >= 25)) {
@@ -239,14 +262,31 @@ class CustomerNavigationController extends ChangeNotifier {
     _lastRequest = now();
     final result = await loadRoute(origin, destination);
     if (_disposed || generation != _generation) return;
+    final previous = route;
+    routes = [result, ...result.alternatives];
     route = result;
+    if (_selectedByDriver && previous != null && routes.length > 1) {
+      // Match road geometry rather than response index: Google may reorder routes.
+      double score(DrivingRoute candidate) {
+        final stride = math.max(1, candidate.points.length ~/ 20);
+        var sum = 0.0, count = 0;
+        for (var i = 0; i < candidate.points.length; i += stride) {
+          sum += _match(candidate.points[i], previous.points).offset;
+          count++;
+        }
+        return sum / count;
+      }
+
+      route = routes.reduce((a, b) => score(a) <= score(b) ? a : b);
+    }
+    final selected = route!;
     _routeOrigin = origin;
     _progress = 0;
     error = null;
     if (position != null) {
-      final match = _match(position!, result.points);
+      final match = _match(position!, selected.points);
       if (match.total > 0 && match.offset < 60) {
-        _progress = result.distanceMetres * match.along / match.total;
+        _progress = selected.distanceMetres * match.along / match.total;
       }
     }
   }

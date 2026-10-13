@@ -10,11 +10,12 @@ enum SessionStatus { checking, authenticated, unauthenticated }
 class SessionController extends ChangeNotifier {
   final TokenStorage _tokenStorage;
   Timer? _expiryTimer;
+  final Future<String?> Function()? logoutBlockReason;
 
   SessionStatus status = SessionStatus.checking;
   String? driverId;
 
-  SessionController(this._tokenStorage);
+  SessionController(this._tokenStorage, {this.logoutBlockReason});
 
   Future<void> initialize() async {
     final token = await _tokenStorage.readAccessToken();
@@ -43,6 +44,14 @@ class SessionController extends ChangeNotifier {
     this.driverId =
         driverId ?? await _tokenStorage.readDriverId() ?? _driverIdOf(token!);
     _setAuthenticatedUntil(expiration);
+  }
+
+  /// Manual logout checks delivery state; expired sessions can still reauthenticate.
+  Future<String?> requestLogout() async {
+    final reason = await logoutBlockReason?.call();
+    if (reason != null) return reason;
+    await logout();
+    return null;
   }
 
   Future<void> logout() => _setUnauthenticated(clearToken: true);

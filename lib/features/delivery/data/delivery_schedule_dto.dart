@@ -116,6 +116,15 @@ class DeliveryScheduleDto {
     final maps = _parseStringList(json['maps']);
     final parsedAssignments = _parseAssignments(json['assignments']);
 
+    // Combined customers have their own loading evidence and lot comments.
+    final records = [
+      json,
+      if (json['combinedLotDeliveries'] is List)
+        ...(json['combinedLotDeliveries'] as List).whereType<Map>().map(
+          (entry) => Map<String, dynamic>.from(entry),
+        ),
+    ];
+
     return DeliveryScheduleDto(
       id: id,
       buyerId: buyerId,
@@ -147,13 +156,23 @@ class DeliveryScheduleDto {
       partialDelivery: partialDelivery,
       permits: permits,
       maps: maps,
-      lotDetails: _parseLotDetails(json['lots']),
+      lotDetails: records
+          .expand((record) => _parseLotDetails(record['lots']))
+          .toList(),
       assignments: parsedAssignments,
-      startVehiclePhotos: _parseStringList(json['startVehiclePhotos']),
-      startAnimalPhotos: _parseStringList(json['startAnimalPhotos']),
+      startVehiclePhotos: records
+          .expand((record) => _parseStringList(record['startVehiclePhotos']))
+          .toSet()
+          .toList(),
+      startAnimalPhotos: records
+          .expand((record) => _parseStringList(record['startAnimalPhotos']))
+          .toSet()
+          .toList(),
       onLoadAnimalsVideo: _stringValue(json['onLoadAnimalsVideo']),
-      onLoadAnimalsVideos: _parseAnimalVideos(json),
-      startMediaMetadata: _parseLoadingMedia(json['startMediaMetadata']),
+      onLoadAnimalsVideos: records.expand(_parseAnimalVideos).toSet().toList(),
+      startMediaMetadata: records
+          .expand((record) => _parseLoadingMedia(record['startMediaMetadata']))
+          .toList(),
       lots: _parseLots(
         mainDeliveryId: id,
         mainBuyerId: buyerId,

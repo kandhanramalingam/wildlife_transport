@@ -25,6 +25,7 @@ class AppDependencies {
   static final TokenStorage tokenStorage = SecureTokenStorage();
   static final SessionController sessionController = SessionController(
     tokenStorage,
+    logoutBlockReason: _logoutBlockReason,
   );
   static final ApiClient apiClient = ApiClient(tokenStorage);
   static final TripLocationTracker tripLocationTracker = TripLocationTracker(
@@ -48,6 +49,26 @@ class AppDependencies {
           );
         },
       );
+
+  static Future<String?> _logoutBlockReason() async {
+    if (tripLocationTracker.isActive) {
+      return 'Finish your active delivery before logging out.';
+    }
+    if (offloadingSyncService.pendingCount > 0 ||
+        offloadingSyncService.isSyncing) {
+      return 'Wait for your saved delivery actions to sync before logging out.';
+    }
+    try {
+      final response = await apiClient.dio.get<Map<String, dynamic>>(
+        'driver-auth/logout-eligibility',
+      );
+      if (response.data?['allowed'] == true) return null;
+      return response.data?['message']?.toString() ??
+          'Finish your active delivery before logging out.';
+    } catch (_) {
+      return 'Connect to the internet to verify your delivery status before logging out.';
+    }
+  }
 
   static LoginController createLoginController() {
     final dataSource = DioAuthRemoteDataSource(apiClient.dio);

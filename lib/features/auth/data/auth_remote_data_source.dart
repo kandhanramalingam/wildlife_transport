@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'login_response_dto.dart';
+import '../../../core/config/app_version.dart';
 
 abstract interface class AuthRemoteDataSource {
   Future<LoginResponseDto> login({
@@ -23,7 +24,7 @@ class DioAuthRemoteDataSource implements AuthRemoteDataSource {
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       'driver-auth/login',
-      data: {'phone': phone, 'password': password},
+      data: {'phone': phone, 'password': password, 'appVersion': appVersion},
       cancelToken: cancelToken,
     );
     final data = response.data;

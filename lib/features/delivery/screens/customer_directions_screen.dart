@@ -104,7 +104,9 @@ class _CustomerDirectionsScreenState extends State<CustomerDirectionsScreen> {
   }
 
   void _fitRoute() {
-    final points = _navigation.route?.points;
+    final points = _navigation.navigating
+        ? _navigation.route?.points
+        : _navigation.routes.expand((route) => route.points).toList();
     if (!mounted || points == null || points.isEmpty) return;
     _moveCamera(
       CameraUpdate.newLatLngBounds(
@@ -237,13 +239,19 @@ class _CustomerDirectionsScreenState extends State<CustomerDirectionsScreen> {
                   ),
               },
               polylines: {
-                if (route != null)
-                  Polyline(
-                    polylineId: const PolylineId('route'),
-                    points: route.points,
-                    color: Colors.blue,
-                    width: 6,
-                  ),
+                for (final entry in nav.routes.indexed)
+                  if (!nav.navigating || identical(entry.$2, route))
+                    Polyline(
+                      polylineId: PolylineId('route-${entry.$1}'),
+                      points: entry.$2.points,
+                      color: identical(entry.$2, route)
+                          ? Colors.blue
+                          : Colors.grey,
+                      width: identical(entry.$2, route) ? 6 : 4,
+                      zIndex: identical(entry.$2, route) ? 1 : 0,
+                      consumeTapEvents: true,
+                      onTap: () => nav.selectRoute(entry.$1),
+                    ),
               },
               onMapCreated: (controller) {
                 _map = controller;
@@ -315,6 +323,39 @@ class _CustomerDirectionsScreenState extends State<CustomerDirectionsScreen> {
                         ],
                       ),
                     ),
+                  if (!nav.navigating && nav.routes.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      nav.routes.length == 1
+                          ? 'One route available'
+                          : 'Choose your route',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final entry in nav.routes.indexed)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                selected: identical(entry.$2, route),
+                                onSelected: nav.loading
+                                    ? null
+                                    : (_) => nav.selectRoute(entry.$1),
+                                label: Text(
+                                  'Route ${entry.$1 + 1} • '
+                                  '${_distance(entry.$2.distanceMetres)} • '
+                                  '${(entry.$2.durationSeconds / 60).ceil()} min'
+                                  '${entry.$2.durationSeconds == nav.routes.map((r) => r.durationSeconds).reduce(math.min) ? " • Fastest" : ""}'
+                                  '${entry.$2.distanceMetres == nav.routes.map((r) => r.distanceMetres).reduce(math.min) ? " • Shortest" : ""}',
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   if (route == null && nav.error != null) ...[
                     OutlinedButton.icon(

@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:wildlife_transport/features/delivery/screens/customer_directions_screen.dart';
+import 'package:wildlife_transport/core/maps/delivery_google_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:wildlife_transport/features/delivery/models/driving_route.dart';
@@ -35,6 +36,119 @@ void main() {
       DrivingStep(instruction: 'Turn left', distanceMetres: 600),
     ],
   );
+
+  test(
+    'keeps the selected alternative when starting and driving along it',
+    () async {
+      var clock = start;
+      final stream = StreamController<Position>();
+      var calls = 0;
+      final alternative = DrivingRoute(
+        points: const [LatLng(0, 0), LatLng(.01, .005), LatLng(0, .01)],
+        distanceMetres: 2500,
+        durationSeconds: 900,
+        instructions: const ['Take the alternative road'],
+        warnings: const [],
+      );
+      final controller = CustomerNavigationController(
+        destination: destination,
+        now: () => clock,
+        currentPosition: () async => fix(0, clock),
+        watchPosition: () => stream.stream,
+        loadRoute: (origin, _) async {
+          calls++;
+          final primary = route(origin);
+          return calls == 1
+              ? DrivingRoute(
+                  points: primary.points,
+                  distanceMetres: primary.distanceMetres,
+                  durationSeconds: primary.durationSeconds,
+                  instructions: primary.instructions,
+                  warnings: primary.warnings,
+                  alternatives: [alternative],
+                )
+              : DrivingRoute(
+                  points: alternative.points,
+                  distanceMetres: 2500,
+                  durationSeconds: 900,
+                  instructions: alternative.instructions,
+                  warnings: const [],
+                  alternatives: [primary],
+                );
+        },
+      );
+      await controller.refresh();
+      controller.selectRoute(1);
+      expect(controller.route!.points, alternative.points);
+      await controller.refresh(); // Alternatives can be reordered by Google.
+      expect(controller.route!.points, alternative.points);
+      await controller.start();
+      expect(controller.route!.points, alternative.points);
+      expect(controller.instruction, 'Take the alternative road');
+      clock = start.add(const Duration(seconds: 31));
+      stream.add(fix(0, clock));
+      await Future<void>.delayed(Duration.zero);
+      expect(calls, 2);
+      expect(controller.route!.points, alternative.points);
+      controller.dispose();
+      await stream.close();
+    },
+  );
+
+  testWidgets('overview displays both routes and allows choosing either road', (
+    tester,
+  ) async {
+    final alternative = DrivingRoute(
+      points: const [LatLng(0, 0), LatLng(.01, .005), destination],
+      distanceMetres: 1500,
+      durationSeconds: 400,
+      instructions: const ['Use alternative road'],
+      warnings: const [],
+    );
+    final controller = CustomerNavigationController(
+      destination: destination,
+      now: () => start,
+      currentPosition: () async => fix(0, start),
+      loadRoute: (origin, _) async => DrivingRoute(
+        points: [origin, destination],
+        distanceMetres: 1000,
+        durationSeconds: 600,
+        instructions: const ['Use main road'],
+        warnings: const [],
+        alternatives: [alternative],
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomerDirectionsScreen(
+          latitude: 0,
+          longitude: .01,
+          controller: controller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DeliveryGoogleMap>(find.byType(DeliveryGoogleMap))
+          .polylines,
+      hasLength(2),
+    );
+    expect(find.text('Choose your route'), findsOneWidget);
+    expect(
+      find.textContaining('Route 1 • 1.0 km • 10 min • Shortest'),
+      findsOneWidget,
+    );
+    final option = find.textContaining('Route 2 • 1.5 km • 7 min • Fastest');
+    expect(option, findsOneWidget);
+    await tester.ensureVisible(option);
+    await tester.tap(option);
+    await tester.pumpAndSettle();
+    expect(controller.route!.points, alternative.points);
+    expect(find.textContaining('Use alternative road'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    controller.dispose();
+  });
 
   test(
     'location timeout tells the driver to check location and does not call routes',
@@ -199,7 +313,7 @@ void main() {
   );
 
   test(
-    'refreshes moving driver route after interval and cancels pending results on stop',
+    'reroutes an off-route driver and cancels pending results on stop',
     () async {
       var clock = start;
       final stream = StreamController<Position>();
@@ -217,7 +331,7 @@ void main() {
       );
       await controller.start();
       clock = start.add(const Duration(seconds: 31));
-      stream.add(fix(.004, clock));
+      stream.add(fix(-.004, clock));
       await Future<void>.delayed(Duration.zero);
       expect(calls, 2);
       final originalRoute = controller.route;

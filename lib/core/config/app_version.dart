@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 /// User-facing release version. Keep synchronized with `pubspec.yaml`.
-const appVersion = '1.4.2';
+const appVersion = '1.5.0';
 
 class AppVersionLabel extends StatelessWidget {
   final Color? color;

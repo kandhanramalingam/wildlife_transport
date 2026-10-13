@@ -384,7 +384,8 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
-        if (widget.delivery.isMultiPickup ||
+        if (widget.delivery.hasLoadingMedia ||
+            widget.delivery.isMultiPickup ||
             widget.delivery.permits.isNotEmpty ||
             widget.delivery.maps.isNotEmpty ||
             widget.delivery.invoicePath?.trim().isNotEmpty == true)

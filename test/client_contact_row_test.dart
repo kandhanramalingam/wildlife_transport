@@ -28,10 +28,13 @@ void main() {
       expect(find.byType(CustomerDirectionsScreen), findsOneWidget);
       expect(find.text('Google Maps is not configured yet.'), findsOneWidget);
       expect(find.text('Start navigation'), findsOneWidget);
+      expect(find.text('Delivery permissions'), findsOneWidget);
       expect(
-        find.text('Turn on location services, then retry.'),
+        find.text('Turn on location services on your device.'),
         findsOneWidget,
       );
+      await tester.tap(find.text('Not now'));
+      await tester.pumpAndSettle();
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(find.byType(ClientContactRow), findsOneWidget);
@@ -64,4 +67,8 @@ void main() {
 class _UnavailableLocation extends GeolocatorPlatform {
   @override
   Future<bool> isLocationServiceEnabled() async => false;
+
+  @override
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.whileInUse;
 }
