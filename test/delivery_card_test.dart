@@ -4,7 +4,7 @@ import 'package:wildlife_transport/features/delivery/models/delivery_model.dart'
 import 'package:wildlife_transport/features/delivery/widgets/delivery_card.dart';
 
 void main() {
-  testWidgets('highlights lot comments directly on the Home delivery card', (
+  testWidgets('marks lots with comments using a red border on the Home card', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -13,11 +13,17 @@ void main() {
           body: SingleChildScrollView(
             child: DeliveryCard(
               delivery: _delivery().copyWith(
+                assignment: const DeliveryAssignment(
+                  driverId: 'driver-1',
+                  vehicleId: 'vehicle-1',
+                  lotNumbers: ['7', '8', '9'],
+                ),
                 lotDetails: const [
                   DeliveryLotDetails(
                     lotNumber: '7',
                     comment: 'Use the north gate',
                   ),
+                  DeliveryLotDetails(lotNumber: '8', comment: '   '),
                 ],
               ),
               onStartLoading: (_) {},
@@ -29,8 +35,23 @@ void main() {
     );
     expect(
       find.text('Important comment • Lot 7\nUse the north gate'),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(find.text('Use the north gate'), findsNothing);
+    for (final lotNumber in ['7', '8', '9']) {
+      final chip = tester.widget<ActionChip>(
+        find.widgetWithText(ActionChip, 'Lot $lotNumber'),
+      );
+      if (lotNumber == '7') {
+        expect(chip.side?.color, Colors.red);
+      } else {
+        expect(chip.side?.color, isNot(Colors.red));
+      }
+    }
+
+    await tester.tap(find.text('Lot 7'));
+    await tester.pumpAndSettle();
+    expect(find.text('Use the north gate'), findsOneWidget);
   });
 
   testWidgets(

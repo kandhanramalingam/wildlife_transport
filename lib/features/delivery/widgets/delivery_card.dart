@@ -37,28 +37,6 @@ class DeliveryCard extends StatelessWidget {
             _buildDateTimeRow(),
             const SizedBox(height: 10),
             _buildAssignmentSummary(),
-            for (final lot in delivery.lotDetails.where(
-              (lot) => lot.comment.trim().isNotEmpty,
-            )) ...[
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3CD),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFFFCA28)),
-                ),
-                child: Text(
-                  'Important comment • Lot ${lot.lotNumber}\n${lot.comment.trim()}',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF7A4E00),
-                  ),
-                ),
-              ),
-            ],
             if (delivery.isMultiPickup) ...[
               const SizedBox(height: 10),
               _buildPickupStopsSection(),
@@ -215,7 +193,11 @@ class DeliveryCard extends StatelessWidget {
                   ),
                   backgroundColor: Colors.white,
                   side: BorderSide(
-                    color: AppTheme.primary.withValues(alpha: 0.35),
+                    color:
+                        detailsByNumber[lotNumber]?.comment.trim().isNotEmpty ==
+                            true
+                        ? Colors.red
+                        : AppTheme.primary.withValues(alpha: 0.35),
                   ),
                   labelStyle: const TextStyle(
                     color: AppTheme.primary,
