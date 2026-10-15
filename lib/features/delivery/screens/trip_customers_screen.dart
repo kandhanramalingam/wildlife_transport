@@ -384,8 +384,7 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
-        if (widget.delivery.hasLoadingMedia ||
-            widget.delivery.isMultiPickup ||
+        if (widget.delivery.isMultiPickup ||
             widget.delivery.permits.isNotEmpty ||
             widget.delivery.maps.isNotEmpty ||
             widget.delivery.invoicePath?.trim().isNotEmpty == true)
@@ -406,10 +405,7 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
             isLocked: isLocked,
             isStarting: isStarting,
             isSavingLocation: isSavingLocation,
-            lotNumbers:
-                customer.assignment?.allLotNumbers ??
-                widget.delivery.assignment?.allLotNumbers ??
-                const [],
+            lotNumbers: widget.delivery.lotNumbersForCustomer(customer),
             onArrived: () => _startOffLoading(customer),
             onViewInvoice: () => _viewInvoice(customer),
             onStoreLocation: () => _storeCustomerLocation(customer),
@@ -522,33 +518,6 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
               permits: widget.delivery.permits,
               maps: widget.delivery.maps,
             ),
-            if (widget.delivery.hasLoadingMedia) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      LoadingMediaSheet.show(context, widget.delivery),
-                  icon: const Icon(Icons.photo_library_outlined, size: 18),
-                  label: Text(
-                    'View Loading Photos & Video (${widget.delivery.allLoadingPhotos.length})',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.primary,
-                    side: BorderSide(
-                      color: AppTheme.primary.withValues(alpha: 0.5),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),

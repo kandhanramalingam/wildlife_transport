@@ -43,7 +43,8 @@ class DeliveryCard extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             _buildDocumentsSection(),
-            if (delivery.assignment?.allLotNumbers.isNotEmpty == true) ...[
+            if (delivery.lots.isEmpty &&
+                delivery.assignment?.allLotNumbers.isNotEmpty == true) ...[
               const SizedBox(height: 10),
               _buildLotsSection(context),
             ],
@@ -58,7 +59,7 @@ class DeliveryCard extends StatelessWidget {
               if (entry.key > 0) {
                 yield const Divider(height: 25, color: Color(0xFFEEEEEE));
               }
-              yield _buildLot(entry.key, entry.value);
+              yield _buildLot(context, entry.key, entry.value);
             }),
             const SizedBox(height: 16),
             _buildTripButton(),
@@ -148,8 +149,11 @@ class DeliveryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildLotsSection(BuildContext context) {
-    final lotNumbers = delivery.assignment!.allLotNumbers;
+  Widget _buildLotsSection(
+    BuildContext context, {
+    List<String>? clientLotNumbers,
+  }) {
+    final lotNumbers = clientLotNumbers ?? delivery.assignment!.allLotNumbers;
     final detailsByNumber = {
       for (final lot in delivery.lotDetails) lot.lotNumber: lot,
     };
@@ -451,7 +455,7 @@ class DeliveryCard extends StatelessWidget {
   }
 
   Widget _buildLoadingMediaSection(BuildContext context) {
-    final photoCount = delivery.allLoadingPhotos.length;
+    final photoCount = delivery.startAnimalPhotos.length;
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
@@ -481,7 +485,7 @@ class DeliveryCard extends StatelessWidget {
     DeliveryStatus.completed => 'Completed',
   };
 
-  Widget _buildLot(int index, DeliveryLot lot) {
+  Widget _buildLot(BuildContext context, int index, DeliveryLot lot) {
     final loaded = lot.loadingCompleted;
     final loadingStarted = lot.status == DeliveryStatus.loading;
     final deliveryCompleted =
@@ -502,6 +506,7 @@ class DeliveryCard extends StatelessWidget {
         delivery.lots.length > 1 &&
         delivery.lots.every((item) => item.status == DeliveryStatus.pending);
     return Column(
+      key: ValueKey('loading-customer-${lot.deliveryId}'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -602,6 +607,13 @@ class DeliveryCard extends StatelessWidget {
               if (lot.latitude.isNotEmpty) 'Lat: ${lot.latitude}',
               if (lot.longitude.isNotEmpty) 'Long: ${lot.longitude}',
             ].join('  •  '),
+          ),
+        ],
+        if (delivery.lotNumbersForCustomer(lot).isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _buildLotsSection(
+            context,
+            clientLotNumbers: delivery.lotNumbersForCustomer(lot),
           ),
         ],
         const SizedBox(height: 10),

@@ -10,6 +10,40 @@ import 'package:wildlife_transport/features/delivery/models/start_delivery_submi
 import 'package:wildlife_transport/features/delivery/presentation/today_deliveries_controller.dart';
 
 void main() {
+  test(
+    'keeps uploaded photos and videos through loading and trip start',
+    () async {
+      final controller = TodayDeliveriesController(_ScheduleRepository([]));
+      controller.deliveries = [
+        _completedDelivery.copyWith(status: DeliveryStatus.loading),
+      ];
+      final uploaded = _completedDelivery.copyWith(
+        startVehiclePhotos: ['uploads/vehicle.jpg'],
+        startAnimalPhotos: ['uploads/animals.jpg'],
+        onLoadAnimalsVideos: ['uploads/animals.mp4'],
+        startMediaMetadata: const [
+          DeliveryLoadingMedia(
+            filePath: 'uploads/animals.mp4',
+            kind: 'animal_video',
+            lotNumber: '101',
+          ),
+        ],
+      );
+      controller.mergeLoadingMedia(_completedDelivery.id, uploaded);
+      controller.markTripStarted(_completedDelivery.id);
+      // A status-only reply must not wipe the evidence saved after loading.
+      controller.mergeLoadingMedia(_completedDelivery.id, _completedDelivery);
+      final active = controller.deliveries.single;
+      expect(active.status, DeliveryStatus.inProgress);
+      expect(active.startVehiclePhotos, ['uploads/vehicle.jpg']);
+      expect(active.startAnimalPhotos, ['uploads/animals.jpg']);
+      expect(active.onLoadAnimalsVideos, ['uploads/animals.mp4']);
+      expect(active.startMediaMetadata.single.lotNumber, '101');
+      expect(active.lots, _completedDelivery.lots);
+      controller.dispose();
+    },
+  );
+
   test('a superseded request cannot show a cancellation error', () async {
     final repository = _OverlappingScheduleRepository();
     final controller = TodayDeliveriesController(repository);

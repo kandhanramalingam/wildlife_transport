@@ -157,7 +157,23 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
         DeliveryStatusUpdate.loadingCompleted,
         vehicleId: vehicleId,
       );
-      return _deliveryModelFromDto(statusDto ?? startDto);
+      final updated = _deliveryModelFromDto(statusDto ?? startDto);
+      // A status acknowledgement may omit evidence; the uploaded paths are authoritative.
+      return updated?.copyWith(
+        startVehiclePhotos: vehiclePhotos,
+        startAnimalPhotos: animalPhotos,
+        onLoadAnimalsVideo: animalVideos.first,
+        onLoadAnimalsVideos: animalVideos,
+        startMediaMetadata: request.startMediaMetadata
+            .map(
+              (media) => DeliveryLoadingMedia(
+                filePath: media['filePath'] as String,
+                kind: media['kind'] as String,
+                lotNumber: media['lotNumber'] as String?,
+              ),
+            )
+            .toList(),
+      );
     } on DioException catch (exception) {
       throw mapDioException(exception);
     } on Failure {
@@ -402,6 +418,7 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
           .map(
             (lot) => DeliveryLot(
               clientName: lot.buyerName,
+              lotNumbers: lot.lotNumbers,
               buyerId: lot.buyerId,
               mainBuyer: lot.mainBuyer,
               deliveryId: lot.deliveryId,

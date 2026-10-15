@@ -146,6 +146,7 @@ class DeliveryAssignment {
 class DeliveryLot {
   final String clientName;
   final String buyerId;
+  final List<String> lotNumbers;
   final bool mainBuyer;
   final String deliveryId;
   final String address;
@@ -165,6 +166,7 @@ class DeliveryLot {
   const DeliveryLot({
     required this.clientName,
     required this.buyerId,
+    this.lotNumbers = const [],
     required this.mainBuyer,
     required this.deliveryId,
     required this.address,
@@ -201,6 +203,7 @@ class DeliveryLot {
 
   DeliveryLot copyWith({
     DeliveryStatus? status,
+    List<String>? lotNumbers,
     bool? atDeliveryPoint,
     int? loadingOrder,
     DeliveryAssignment? assignment,
@@ -212,6 +215,7 @@ class DeliveryLot {
     return DeliveryLot(
       clientName: clientName,
       buyerId: buyerId,
+      lotNumbers: lotNumbers ?? this.lotNumbers,
       mainBuyer: mainBuyer,
       deliveryId: deliveryId,
       address: address,
@@ -394,6 +398,42 @@ class DeliveryModel {
   String get assignedVehicleId => assignment?.vehicleId ?? '';
 
   String get assignedVehicleLabel => assignment?.vehicleLabel ?? '';
+
+  /// Retain all loading evidence when a customer upload or status response arrives.
+  DeliveryModel withLoadingMediaFrom(DeliveryModel uploaded) {
+    final videos = <String>{
+      ...onLoadAnimalsVideos,
+      if (onLoadAnimalsVideo?.isNotEmpty == true) onLoadAnimalsVideo!,
+      ...uploaded.onLoadAnimalsVideos,
+      if (uploaded.onLoadAnimalsVideo?.isNotEmpty == true)
+        uploaded.onLoadAnimalsVideo!,
+    }.toList();
+    final metadata = {
+      for (final media in startMediaMetadata) media.filePath: media,
+      for (final media in uploaded.startMediaMetadata) media.filePath: media,
+    };
+    return copyWith(
+      startVehiclePhotos: {
+        ...startVehiclePhotos,
+        ...uploaded.startVehiclePhotos,
+      }.toList(),
+      startAnimalPhotos: {
+        ...startAnimalPhotos,
+        ...uploaded.startAnimalPhotos,
+      }.toList(),
+      onLoadAnimalsVideos: videos,
+      onLoadAnimalsVideo: videos.isEmpty ? null : videos.first,
+      startMediaMetadata: metadata.values.toList(),
+    );
+  }
+
+  List<String> lotNumbersForCustomer(DeliveryLot customer) {
+    if (customer.lotNumbers.isNotEmpty) return customer.lotNumbers;
+    if (lots.length > 1) return const [];
+    return customer.assignment?.allLotNumbers ??
+        assignment?.allLotNumbers ??
+        const [];
+  }
 
   DeliveryModel copyWith({
     DeliveryStatus? status,

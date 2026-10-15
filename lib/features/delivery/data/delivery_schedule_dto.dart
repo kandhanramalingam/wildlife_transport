@@ -125,6 +125,11 @@ class DeliveryScheduleDto {
         ),
     ];
 
+    final combinedClientLots = records
+        .skip(1)
+        .expand(_clientLotNumbers)
+        .toSet();
+
     return DeliveryScheduleDto(
       id: id,
       buyerId: buyerId,
@@ -214,6 +219,9 @@ class DeliveryScheduleDto {
         mainLoadingOrder: _intValue(
           json['loadingOrder'] ?? json['loadingSequence'],
         ),
+        mainLotNumbers: _clientLotNumbers(json)
+            .where((number) => !combinedClientLots.contains(number))
+            .toList(growable: false),
         mainStatus: deliveryStatus,
         mainAssignment: assignment,
         authenticatedDriverId: authenticatedDriverId,
@@ -236,6 +244,7 @@ class DeliveryScheduleDto {
     required String mainInvoicePath,
     required int? mainLoadingOrder,
     required String mainStatus,
+    required List<String> mainLotNumbers,
     required DeliveryAssignmentDto? mainAssignment,
     required String? authenticatedDriverId,
     required dynamic buyers,
@@ -243,6 +252,7 @@ class DeliveryScheduleDto {
   }) {
     final result = <DeliveryLotDto>[
       DeliveryLotDto(
+        lotNumbers: mainLotNumbers,
         deliveryId: mainDeliveryId,
         buyerId: mainBuyerId,
         buyerName: mainBuyerName,
@@ -398,6 +408,7 @@ class DeliveryScheduleDto {
                       'pending')
                   .toString(),
           assignment: assignment,
+          lotNumbers: _clientLotNumbers(delivery),
           mainBuyer: false,
         ),
       );
@@ -554,6 +565,18 @@ class DeliveryScheduleDto {
     );
   }
 
+  static List<String> _clientLotNumbers(Map<String, dynamic> record) {
+    if (record['clientLotNumbers'] is List) {
+      return _parseStringList(record['clientLotNumbers']);
+    }
+    // Older APIs may include aggregate details on the main record. The caller
+    // removes lots explicitly owned by combined customers from the main list.
+    // The shared vehicle allocation never establishes client ownership.
+    return _parseLotDetails(
+      record['lots'],
+    ).map((lot) => lot.lotNumber).toSet().toList();
+  }
+
   static List<String> _parseStringList(dynamic rawList) {
     if (rawList is! List) return const [];
     return List.unmodifiable(
@@ -658,6 +681,7 @@ class DeliveryPickupStopDto {
 class DeliveryLotDto {
   final String deliveryId;
   final String buyerId;
+  final List<String> lotNumbers;
   final String buyerName;
   final String address;
   final String farmName;
@@ -674,6 +698,7 @@ class DeliveryLotDto {
   const DeliveryLotDto({
     required this.deliveryId,
     required this.buyerId,
+    this.lotNumbers = const [],
     required this.buyerName,
     required this.address,
     this.farmName = '',

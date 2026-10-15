@@ -20,12 +20,14 @@ enum DeliveryWorkflow { startTrip, arrival }
 class StartDeliveryScreen extends StatefulWidget {
   final DeliveryModel delivery;
   final DeliveryWorkflow workflow;
+  final ValueChanged<DeliveryModel>? onLoadingCompleted;
   final String destinationLatitude;
   final String destinationLongitude;
 
   const StartDeliveryScreen({
     super.key,
     required this.delivery,
+    this.onLoadingCompleted,
     this.workflow = DeliveryWorkflow.startTrip,
     this.destinationLatitude = '',
     this.destinationLongitude = '',
@@ -279,7 +281,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
     }
 
     try {
-      await _repository.completeLoading(
+      final updated = await _repository.completeLoading(
         widget.delivery.id,
         StartDeliverySubmission(
           startOdometerReading: photos.odometerReading!,
@@ -295,7 +297,10 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
         ),
         vehicleId: widget.delivery.assignedVehicleId,
       );
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) {
+        if (updated != null) widget.onLoadingCompleted?.call(updated);
+        Navigator.of(context).pop(true);
+      }
     } on Failure catch (failure) {
       _showError(failure.message);
     } catch (_) {

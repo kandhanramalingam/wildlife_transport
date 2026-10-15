@@ -182,6 +182,15 @@ class TodayDeliveriesController extends ChangeNotifier {
     updateLots(deliveryId, lots);
   }
 
+  void mergeLoadingMedia(String deliveryId, DeliveryModel uploaded) {
+    final index = deliveries.indexWhere((item) => item.id == deliveryId);
+    if (index == -1) return;
+    final list = List<DeliveryModel>.of(deliveries);
+    list[index] = list[index].withLoadingMediaFrom(uploaded);
+    deliveries = List.unmodifiable(list);
+    notifyListeners();
+  }
+
   void applyDeliveryUpdate(DeliveryModel updated) {
     final index = deliveries.indexWhere((item) => item.id == updated.id);
     if (index == -1) return;

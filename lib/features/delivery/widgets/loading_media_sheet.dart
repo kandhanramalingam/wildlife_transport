@@ -35,9 +35,6 @@ class LoadingMediaSheet extends StatelessWidget {
               .where((media) => media.belongsToLot(selectedLot!))
               .toList(growable: false)
         : const <DeliveryLoadingMedia>[];
-    final vehiclePhotos = isLotView
-        ? const <String>[]
-        : delivery.startVehiclePhotos;
     final animalPhotos = isLotView
         ? lotMedia
               .where((media) => media.kind == 'animal_photo')
@@ -71,7 +68,7 @@ class LoadingMediaSheet extends StatelessWidget {
               delivery.onLoadAnimalsVideo!,
           ].where((path) => !taggedPaths.contains(path)).toSet().toList()
         : const <String>[];
-    final totalPhotos = vehiclePhotos.length + animalPhotos.length;
+    final totalPhotos = animalPhotos.length;
     final totalMedia = totalPhotos + videoPaths.length;
 
     return Container(
@@ -125,7 +122,7 @@ class LoadingMediaSheet extends StatelessWidget {
                       Text(
                         isLotView
                             ? '$totalMedia image/video file(s) captured during loading'
-                            : '$totalPhotos photo(s) captured at departure',
+                            : '$totalPhotos photo(s), ${videoPaths.length} video(s) captured during loading',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.textSecondary,
@@ -148,15 +145,6 @@ class LoadingMediaSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (vehiclePhotos.isNotEmpty) ...[
-                    _buildSectionHeader(
-                      'Vehicle Photos (${vehiclePhotos.length})',
-                      Icons.local_shipping_outlined,
-                    ),
-                    const SizedBox(height: 10),
-                    _buildPhotoGrid(context, vehiclePhotos),
-                    const SizedBox(height: 20),
-                  ],
                   if (animalPhotos.isNotEmpty) ...[
                     _buildSectionHeader(
                       'Animal Photos (${animalPhotos.length})',

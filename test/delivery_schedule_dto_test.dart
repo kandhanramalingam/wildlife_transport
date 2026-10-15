@@ -3,6 +3,81 @@ import 'package:wildlife_transport/features/delivery/data/delivery_schedule_dto.
 import 'package:wildlife_transport/features/delivery/models/delivery_model.dart';
 
 void main() {
+  test(
+    'parses client-owned lot numbers independently of the shared vehicle lots',
+    () {
+      final dto = DeliveryScheduleDto.fromJson({
+        '_id': 'main',
+        'buyerId': 'buyer-1',
+        'auctionId': 'auction-1',
+        'scheduleDate': '2026-10-16T08:00:00Z',
+        'vehicleId': 'vehicle-1',
+        'lotNumbers': ['B-15-A034', 'B-16-A051'],
+        'clientLotNumbers': ['B-15-A034'],
+        'lots': [
+          {'lotNo': 'B-15-A034'},
+        ],
+        'combinedLotBuyers': ['buyer-2'],
+        'combinedLotDeliveries': [
+          {
+            '_id': 'child',
+            'buyerId': 'buyer-2',
+            'vehicleId': 'vehicle-1',
+            'lotNumbers': ['B-15-A034', 'B-16-A051'],
+            'clientLotNumbers': ['B-16-A051'],
+            'lots': [
+              {'lotNo': 'B-16-A051'},
+            ],
+          },
+        ],
+      });
+      expect(dto.assignment!.lotNumbers, ['B-15-A034', 'B-16-A051']);
+      expect(dto.lots[0].lotNumbers, ['B-15-A034']);
+      expect(dto.lots[1].lotNumbers, ['B-16-A051']);
+    },
+  );
+
+  for (final explicitNumbers in [false, true]) {
+    test(
+      'keeps one lot per client when the main record contains the combined lot ($explicitNumbers)',
+      () {
+        final dto = DeliveryScheduleDto.fromJson({
+          '_id': 'main',
+          'buyerId': 'riaan',
+          'buyerName': 'RIAAN SUTHERLAND',
+          'auctionId': 'auction-1',
+          'scheduleDate': '2026-10-16T08:00:00Z',
+          'vehicleId': 'vehicle-1',
+          'lotNumbers': ['B-16-A051', 'B-15-A034'],
+          if (explicitNumbers) 'clientLotNumbers': ['B-16-A051', 'B-15-A034'],
+          'lots': [
+            {'lotNo': 'B-16-A051'},
+            {'lotNo': 'B-15-A034'},
+          ],
+          'combinedLotBuyers': ['johnny'],
+          'combinedLotDeliveries': [
+            {
+              '_id': 'child',
+              'buyerId': 'johnny',
+              'buyerName': 'Johnny Thomson',
+              'vehicleId': 'vehicle-1',
+              'lotNumbers': ['B-16-A051', 'B-15-A034'],
+              if (explicitNumbers) 'clientLotNumbers': ['B-15-A034'],
+              'lots': [
+                {'lotNo': 'B-15-A034'},
+              ],
+            },
+          ],
+        });
+        expect(dto.lots[0].buyerName, 'RIAAN SUTHERLAND');
+        expect(dto.lots[0].lotNumbers, ['B-16-A051']);
+        expect(dto.lots[1].buyerName, 'Johnny Thomson');
+        expect(dto.lots[1].lotNumbers, ['B-15-A034']);
+        expect(dto.assignment!.lotNumbers, ['B-16-A051', 'B-15-A034']);
+      },
+    );
+  }
+
   test('parses a today schedule response item', () {
     final dto = DeliveryScheduleDto.fromJson({
       '_id': 'schedule-1',

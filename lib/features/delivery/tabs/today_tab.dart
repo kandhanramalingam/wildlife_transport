@@ -172,6 +172,8 @@ class _TodayTabState extends State<TodayTab> {
     final loaded = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => StartDeliveryScreen(
+          onLoadingCompleted: (updated) =>
+              _controller.mergeLoadingMedia(delivery.id, updated),
           delivery: DeliveryModel(
             id: lot.deliveryId,
             buyerId: lot.buyerId,
@@ -226,6 +228,7 @@ class _TodayTabState extends State<TodayTab> {
         vehicleId: delivery.assignedVehicleId,
       );
       if (updated != null) {
+        _controller.mergeLoadingMedia(delivery.id, updated);
         _controller.updateDeliveryStatusAndPartial(
           deliveryId: delivery.id,
           status: updated.status,
@@ -256,7 +259,9 @@ class _TodayTabState extends State<TodayTab> {
       ),
     );
     await _openTripCustomers(
-      delivery.copyWith(status: DeliveryStatus.inProgress),
+      _controller.deliveries
+          .firstWhere((item) => item.id == delivery.id)
+          .copyWith(status: DeliveryStatus.inProgress),
     );
   }
 

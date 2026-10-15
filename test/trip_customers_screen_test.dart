@@ -4,6 +4,36 @@ import 'package:wildlife_transport/features/delivery/models/delivery_model.dart'
 import 'package:wildlife_transport/features/delivery/screens/trip_customers_screen.dart';
 
 void main() {
+  testWidgets('shows newly uploaded onloading media during active delivery', (
+    tester,
+  ) async {
+    final loaded = _deliveryWithMedia();
+    final active = loaded
+        .copyWith(
+          startAnimalPhotos: [],
+          onLoadAnimalsVideos: [],
+          startMediaMetadata: [],
+        )
+        .withLoadingMediaFrom(loaded)
+        .copyWith(status: DeliveryStatus.inProgress);
+    await tester.pumpWidget(
+      MaterialApp(home: TripCustomersScreen(delivery: active)),
+    );
+    await tester.ensureVisible(find.text('View Trip Loading Media'));
+    await tester.tap(find.text('View Trip Loading Media'));
+    await tester.pumpAndSettle();
+    expect(find.text('Animal Photos (2)'), findsOneWidget);
+    expect(find.text('Animal Loading Videos (2)'), findsOneWidget);
+    expect(
+      find.text('2 photo(s), 2 video(s) captured during loading'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('No loading photos or videos uploaded for this delivery.'),
+      findsNothing,
+    );
+  });
+
   testWidgets('queued customer shows awaiting sync', (tester) async {
     final delivery = _delivery();
     await tester.pumpWidget(
@@ -72,6 +102,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Loading Proof & Photos'), findsOneWidget);
+      expect(find.text('Vehicle Photos (1)'), findsNothing);
       expect(find.text('Animal Photos (2)'), findsOneWidget);
       expect(find.text('Animal Loading Videos (2)'), findsOneWidget);
     },
@@ -90,6 +121,7 @@ DeliveryModel _deliveryWithMedia() {
     clientName: 'Media stop',
     clientAddress: 'Media address',
     status: DeliveryStatus.inProgress,
+    startVehiclePhotos: const ['https://example.com/vehicle.jpg'],
     startAnimalPhotos: const [
       'https://example.com/lot-101.jpg',
       'https://example.com/lot-102.jpg',

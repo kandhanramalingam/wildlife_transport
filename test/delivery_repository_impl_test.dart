@@ -26,7 +26,7 @@ void main() {
     'loading associates distinct capture metadata with every uploaded file',
     () async {
       final source = _RecordingDeliveryDataSource();
-      await DeliveryRepositoryImpl(source).completeLoading(
+      final updated = await DeliveryRepositoryImpl(source).completeLoading(
         'delivery-1',
         StartDeliverySubmission(
           startOdometerReading: 100,
@@ -57,6 +57,16 @@ void main() {
           otherSignature: Uint8List.fromList([6]),
         ),
       );
+      expect(updated?.startVehiclePhotos, [
+        'uploads/vehicle1.jpg',
+        'uploads/vehicle2.jpg',
+      ]);
+      expect(updated?.startAnimalPhotos, ['uploads/animal.jpg']);
+      expect(updated?.onLoadAnimalsVideos, [
+        'uploads/animals-lot-101.mp4',
+        'uploads/animals-lot-102.mp4',
+      ]);
+      expect(updated?.startMediaMetadata.last.lotNumber, '102');
       final metadata = source.startBody!['startMediaMetadata'] as List;
       expect(metadata.map((m) => m['filePath']), [
         'uploads/vehicle1.jpg',
@@ -166,7 +176,18 @@ class _RecordingDeliveryDataSource implements DeliveryRemoteDataSource {
     bool offlineReplay = false,
   }) async {
     statusUpdates.add((deliveryId, status, vehicleId));
-    return null;
+    // A status response can carry lifecycle fields without repeating uploaded media.
+    return DeliveryScheduleDto(
+      id: deliveryId,
+      buyerId: 'buyer-1',
+      buyerName: 'Buyer',
+      address: 'Farm',
+      auctionId: 'auction-1',
+      scheduleDate: DateTime(2026, 9, 5),
+      deliveryStatus: status.apiValue,
+      paymentStatus: true,
+      lots: const [],
+    );
   }
 
   @override

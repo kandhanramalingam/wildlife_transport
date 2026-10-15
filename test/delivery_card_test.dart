@@ -4,6 +4,54 @@ import 'package:wildlife_transport/features/delivery/models/delivery_model.dart'
 import 'package:wildlife_transport/features/delivery/widgets/delivery_card.dart';
 
 void main() {
+  testWidgets(
+    'shows lots under their respective client instead of a shared top section',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DeliveryCard(
+                delivery: _delivery(withClientLots: true).copyWith(
+                  assignment: const DeliveryAssignment(
+                    driverId: 'driver-1',
+                    vehicleId: 'vehicle-1',
+                    lotNumbers: ['7', '8', '9'],
+                  ),
+                ),
+                onStartLoading: (_) {},
+                onStartTrip: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      final first = find.byKey(const ValueKey('loading-customer-delivery-1'));
+      final second = find.byKey(const ValueKey('loading-customer-delivery-2'));
+      expect(
+        find.descendant(of: first, matching: find.text('Lot 7')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: first, matching: find.text('Lot 8')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: second, matching: find.text('Lot 8')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: second, matching: find.text('Lot 9')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: second, matching: find.text('Lot 7')),
+        findsNothing,
+      );
+      expect(find.text('Lot 7'), findsOneWidget);
+    },
+  );
+
   testWidgets('marks lots with comments using a red border on the Home card', (
     tester,
   ) async {
@@ -12,7 +60,7 @@ void main() {
         home: Scaffold(
           body: SingleChildScrollView(
             child: DeliveryCard(
-              delivery: _delivery().copyWith(
+              delivery: _delivery(withClientLots: true).copyWith(
                 assignment: const DeliveryAssignment(
                   driverId: 'driver-1',
                   vehicleId: 'vehicle-1',
@@ -276,7 +324,10 @@ void main() {
   });
 }
 
-DeliveryModel _delivery({DeliveryStatus firstStatus = DeliveryStatus.pending}) {
+DeliveryModel _delivery({
+  DeliveryStatus firstStatus = DeliveryStatus.pending,
+  bool withClientLots = false,
+}) {
   return DeliveryModel(
     id: 'route-1',
     dateTime: DateTime(2026, 8, 19, 20, 15),
@@ -289,14 +340,16 @@ DeliveryModel _delivery({DeliveryStatus firstStatus = DeliveryStatus.pending}) {
         mainBuyer: true,
         deliveryId: 'delivery-1',
         address: 'First address',
+        lotNumbers: withClientLots ? const ['7'] : const [],
         status: firstStatus,
       ),
-      const DeliveryLot(
+      DeliveryLot(
         clientName: 'Second buyer',
         buyerId: 'buyer-2',
         mainBuyer: false,
         deliveryId: 'delivery-2',
         address: 'Second address',
+        lotNumbers: withClientLots ? const ['8', '9'] : const [],
       ),
     ],
   );
