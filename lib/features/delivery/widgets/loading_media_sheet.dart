@@ -188,7 +188,7 @@ class LoadingMediaSheet extends StatelessWidget {
                             ),
                           ),
                           title: Text(
-                            'Play Lot Video ${index + 1}',
+                            'Play Loading Video ${index + 1}',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -203,19 +203,17 @@ class LoadingMediaSheet extends StatelessWidget {
                       unassignedVideos.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     const Text(
-                      'Other loading media — lot not recorded',
+                      'Trip Loading Media',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    const Text('These older uploads do not identify a lot.'),
+                    const Text('These photos and videos belong to the trip.'),
                     const SizedBox(height: 10),
                     if (unassignedPhotos.isNotEmpty)
                       _buildPhotoGrid(context, unassignedPhotos),
                     for (final path in unassignedVideos)
                       ListTile(
                         leading: const Icon(Icons.play_arrow),
-                        title: const Text(
-                          'Play loading video (lot not recorded)',
-                        ),
+                        title: const Text('Play trip loading video'),
                         onTap: () => _openUrl(context, path),
                       ),
                   ],

@@ -57,21 +57,25 @@ void main() {
     expect(find.text('Complete Previous Delivery First'), findsNothing);
   });
 
-  testWidgets('lot button opens only that lot loading media', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: TripCustomersScreen(delivery: _deliveryWithMedia())),
-    );
+  testWidgets(
+    'trip media button opens all loading evidence including older lot uploads',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: TripCustomersScreen(delivery: _deliveryWithMedia())),
+      );
 
-    expect(find.widgetWithText(OutlinedButton, 'Lot 101'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'Lot 102'), findsOneWidget);
+      expect(find.widgetWithText(Chip, 'Lot 101'), findsOneWidget);
+      expect(find.widgetWithText(Chip, 'Lot 102'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Lot 101'));
-    await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('View Trip Loading Media'));
+      await tester.tap(find.text('View Trip Loading Media'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Lot 101 Loading Media'), findsOneWidget);
-    expect(find.text('Animal Photos (1)'), findsOneWidget);
-    expect(find.text('Animal Loading Videos (1)'), findsOneWidget);
-  });
+      expect(find.text('Loading Proof & Photos'), findsOneWidget);
+      expect(find.text('Animal Photos (2)'), findsOneWidget);
+      expect(find.text('Animal Loading Videos (2)'), findsOneWidget);
+    },
+  );
 }
 
 DeliveryModel _deliveryWithMedia() {

@@ -10,6 +10,6 @@ void main() {
       const MaterialApp(home: Scaffold(body: AppVersionLabel())),
     );
 
-    expect(find.text('Version 1.5.0'), findsOneWidget);
+    expect(find.text('Version 1.5.1'), findsOneWidget);
   });
 }

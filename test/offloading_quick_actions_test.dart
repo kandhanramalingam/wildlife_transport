@@ -44,7 +44,7 @@ void main() {
       final pages =
           (pageView.childrenDelegate as SliverChildListDelegate).children;
       final photosStep = pages.whereType<PhotosStep>().single;
-      expect(photosStep.lotNumbers, isEmpty);
+      expect(photosStep.isOffLoading, isTrue);
 
       await tester.tap(find.byTooltip('Open navigation'));
       await tester.pump();

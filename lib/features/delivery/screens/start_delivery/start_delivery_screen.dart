@@ -125,13 +125,6 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
                         includeAnimalPhotos: true,
                         requireLocation: !_isArrival,
                         isOffLoading: _isArrival,
-                        // Per-lot animal evidence belongs to the trip-loading
-                        // flow. Off-loading already runs once per customer
-                        // delivery and its API accepts one animal video.
-                        lotNumbers: _isArrival
-                            ? const []
-                            : widget.delivery.assignment?.allLotNumbers ??
-                                  const [],
                       ),
                       SignatureStep(
                         onStartTrip: _finishWorkflow,
@@ -142,7 +135,7 @@ class _StartDeliveryScreenState extends State<StartDeliveryScreen> {
                         requireOtherSignature: !_isArrival,
                         description: _isArrival
                             ? 'The client must sign to confirm the animals’ health and quantities.'
-                            : 'Obtain signatures from both officers to complete this lot’s loading.',
+                            : 'Obtain signatures from both officers to complete this trip’s loading.',
                         incompleteMessage: _isArrival
                             ? 'The client signature is required to complete off-loading'
                             : 'Both signatures are required to complete loading',

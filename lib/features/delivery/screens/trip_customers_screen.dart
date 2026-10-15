@@ -413,11 +413,8 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
             onArrived: () => _startOffLoading(customer),
             onViewInvoice: () => _viewInvoice(customer),
             onStoreLocation: () => _storeCustomerLocation(customer),
-            onViewLotMedia: (lotNumber) => LoadingMediaSheet.show(
-              context,
-              widget.delivery,
-              lotNumber: lotNumber,
-            ),
+            onViewLoadingMedia: () =>
+                LoadingMediaSheet.show(context, widget.delivery),
           );
         }),
       ],
@@ -569,7 +566,7 @@ class _CustomerCard extends StatelessWidget {
   final VoidCallback onArrived;
   final VoidCallback onViewInvoice;
   final VoidCallback onStoreLocation;
-  final ValueChanged<String> onViewLotMedia;
+  final VoidCallback onViewLoadingMedia;
 
   const _CustomerCard({
     required this.customer,
@@ -581,7 +578,7 @@ class _CustomerCard extends StatelessWidget {
     required this.onArrived,
     required this.onViewInvoice,
     required this.onStoreLocation,
-    required this.onViewLotMedia,
+    required this.onViewLoadingMedia,
   });
 
   @override
@@ -703,6 +700,12 @@ class _CustomerCard extends StatelessWidget {
                 showNavigation: !isLocked,
               ),
             ],
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: onViewLoadingMedia,
+              icon: const Icon(Icons.photo_library_outlined, size: 16),
+              label: const Text('View Trip Loading Media'),
+            ),
             if (lotNumbers.isNotEmpty) ...[
               const SizedBox(height: 10),
               Row(
@@ -723,21 +726,7 @@ class _CustomerCard extends StatelessWidget {
                       runSpacing: 8,
                       children: [
                         for (final lotNumber in lotNumbers)
-                          OutlinedButton.icon(
-                            onPressed: () => onViewLotMedia(lotNumber),
-                            icon: const Icon(
-                              Icons.photo_library_outlined,
-                              size: 16,
-                            ),
-                            label: Text('Lot $lotNumber'),
-                            style: OutlinedButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              foregroundColor: AppTheme.primary,
-                              side: BorderSide(
-                                color: AppTheme.primary.withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ),
+                          Chip(label: Text('Lot $lotNumber')),
                       ],
                     ),
                   ),
