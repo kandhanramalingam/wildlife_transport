@@ -30,7 +30,8 @@ class _TodayTabState extends State<TodayTab> {
     super.initState();
     _repository = AppDependencies.createDeliveryRepository();
     _syncRevision = AppDependencies.offloadingSyncService.syncRevision;
-    _controller = AppDependencies.createTodayDeliveriesController()
+    _controller = AppDependencies.createTodayDeliveriesController();
+    _controller
       ..addListener(_onStateChanged)
       ..load();
     AppDependencies.offloadingSyncService.addListener(_onOffloadingSyncChanged);
@@ -183,8 +184,8 @@ class _TodayTabState extends State<TodayTab> {
             clientAddress: lot.address,
             paymentStatus: delivery.paymentStatus,
             invoicePath: lot.invoicePath,
-            permits: delivery.permits,
-            maps: delivery.maps,
+            permits: lot.permits,
+            maps: lot.maps,
             assignment: lot.assignment ?? delivery.assignment,
           ),
         ),

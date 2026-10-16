@@ -78,6 +78,40 @@ void main() {
     );
   }
 
+  test(
+    'keeps client documents separate without using parent files for missing child documents',
+    () {
+      final dto = DeliveryScheduleDto.fromJson({
+        '_id': 'main',
+        'buyerId': 'buyer-1',
+        'auctionId': '301',
+        'scheduleDate': '2026-10-16T08:00:00Z',
+        'invoicePath': 'main.pdf',
+        'permits': ['main-permit.pdf'],
+        'maps': ['main-map.png'],
+        'combinedLotBuyers': ['buyer-2', 'buyer-3'],
+        'combinedLotDeliveries': [
+          {
+            '_id': 'child-2',
+            'buyerId': 'buyer-2',
+            'invoicePath': 'child.pdf',
+            'permits': ['child-permit.pdf'],
+            'maps': ['child-map.png'],
+          },
+          {'_id': 'child-3', 'buyerId': 'buyer-3'},
+        ],
+      });
+      expect(dto.lots[0].permits, ['main-permit.pdf']);
+      expect(dto.lots[0].maps, ['main-map.png']);
+      expect(dto.lots[1].invoicePath, 'child.pdf');
+      expect(dto.lots[1].permits, ['child-permit.pdf']);
+      expect(dto.lots[1].maps, ['child-map.png']);
+      expect(dto.lots[2].invoicePath, isEmpty);
+      expect(dto.lots[2].permits, isEmpty);
+      expect(dto.lots[2].maps, isEmpty);
+    },
+  );
+
   test('parses a today schedule response item', () {
     final dto = DeliveryScheduleDto.fromJson({
       '_id': 'schedule-1',

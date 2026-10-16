@@ -14,6 +14,7 @@ class SessionController extends ChangeNotifier {
 
   SessionStatus status = SessionStatus.checking;
   String? driverId;
+  bool isSelfLoad = false;
 
   SessionController(this._tokenStorage, {this.logoutBlockReason});
 
@@ -31,6 +32,7 @@ class SessionController extends ChangeNotifier {
     }
 
     driverId = await _tokenStorage.readDriverId() ?? _driverIdOf(token);
+    isSelfLoad = await _tokenStorage.readIsSelfLoad();
     _setAuthenticatedUntil(expiration);
   }
 
@@ -43,6 +45,7 @@ class SessionController extends ChangeNotifier {
     }
     this.driverId =
         driverId ?? await _tokenStorage.readDriverId() ?? _driverIdOf(token!);
+    isSelfLoad = await _tokenStorage.readIsSelfLoad();
     _setAuthenticatedUntil(expiration);
   }
 
@@ -67,6 +70,7 @@ class SessionController extends ChangeNotifier {
     _expiryTimer?.cancel();
     if (clearToken) await _tokenStorage.clear();
     driverId = null;
+    isSelfLoad = false;
     status = SessionStatus.unauthenticated;
     notifyListeners();
   }

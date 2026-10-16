@@ -429,6 +429,8 @@ class DeliveryRepositoryImpl implements DeliveryRepository {
               latitude: lot.latitude,
               longitude: lot.longitude,
               invoicePath: lot.invoicePath,
+              permits: lot.permits,
+              maps: lot.maps,
               loadingOrder: lot.loadingOrder,
               status: DeliveryStatus.fromApi(lot.deliveryStatus),
               assignment: _assignmentFromDto(lot.assignment),

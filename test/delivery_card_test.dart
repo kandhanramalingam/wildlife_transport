@@ -147,14 +147,16 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: DeliveryCard(
-            delivery: _delivery(),
-            onStartLoading: (_) {},
-            onStartTrip: () {},
-            onReorderLot: (oldValue, newValue) {
-              oldIndex = oldValue;
-              newIndex = newValue;
-            },
+          body: SingleChildScrollView(
+            child: DeliveryCard(
+              delivery: _delivery(),
+              onStartLoading: (_) {},
+              onStartTrip: () {},
+              onReorderLot: (oldValue, newValue) {
+                oldIndex = oldValue;
+                newIndex = newValue;
+              },
+            ),
           ),
         ),
       ),
@@ -175,11 +177,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: DeliveryCard(
-            delivery: delivery,
-            onStartLoading: (_) {},
-            onStartTrip: () {},
-            onReorderLot: (_, _) {},
+          body: SingleChildScrollView(
+            child: DeliveryCard(
+              delivery: delivery,
+              onStartLoading: (_) {},
+              onStartTrip: () {},
+              onReorderLot: (_, _) {},
+            ),
           ),
         ),
       ),
@@ -217,10 +221,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: DeliveryCard(
-            delivery: assigned,
-            onStartLoading: (_) {},
-            onStartTrip: () {},
+          body: SingleChildScrollView(
+            child: DeliveryCard(
+              delivery: assigned,
+              onStartLoading: (_) {},
+              onStartTrip: () {},
+            ),
           ),
         ),
       ),

@@ -6,6 +6,37 @@ import 'package:wildlife_transport/features/auth/presentation/session_controller
 
 void main() {
   test(
+    'restores self-load visibility after restart and resets it on logout',
+    () async {
+      final storage = _MemoryTokenStorage(
+        _jwt(DateTime.now().add(const Duration(hours: 1))),
+        'driver-1',
+      )..isSelfLoad = true;
+      final controller = SessionController(storage);
+      await controller.initialize();
+      expect(controller.isSelfLoad, isTrue);
+      await controller.logout();
+      expect(controller.isSelfLoad, isFalse);
+      expect(storage.isSelfLoad, isFalse);
+      controller.dispose();
+    },
+  );
+
+  test(
+    'reads the login role when marking a new session authenticated',
+    () async {
+      final storage = _MemoryTokenStorage(
+        _jwt(DateTime.now().add(const Duration(hours: 1))),
+        'driver-1',
+      )..isSelfLoad = true;
+      final controller = SessionController(storage);
+      await controller.markAuthenticated(driverId: 'driver-1');
+      expect(controller.isSelfLoad, isTrue);
+      controller.dispose();
+    },
+  );
+
+  test(
     'manual logout preserves authentication while a delivery is active',
     () async {
       final storage = _MemoryTokenStorage(
@@ -70,6 +101,7 @@ String _jwt(DateTime expiration) {
 class _MemoryTokenStorage implements TokenStorage {
   String? token;
   String? driverId;
+  bool isSelfLoad = false;
 
   _MemoryTokenStorage(this.token, [this.driverId]);
 
@@ -77,6 +109,7 @@ class _MemoryTokenStorage implements TokenStorage {
   Future<void> clear() async {
     token = null;
     driverId = null;
+    isSelfLoad = false;
   }
 
   @override
@@ -84,6 +117,12 @@ class _MemoryTokenStorage implements TokenStorage {
 
   @override
   Future<String?> readDriverId() async => driverId;
+
+  @override
+  Future<bool> readIsSelfLoad() async => isSelfLoad;
+
+  @override
+  Future<void> saveIsSelfLoad(bool value) async => isSelfLoad = value;
 
   @override
   Future<void> saveAccessToken(String token) async => this.token = token;

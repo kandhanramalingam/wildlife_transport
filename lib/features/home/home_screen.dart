@@ -5,7 +5,9 @@ import '../../core/location/tracking_status_banner.dart';
 import '../delivery/widgets/offloading_sync_banner.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool isSelfLoad;
+
+  const HomeScreen({super.key, this.isSelfLoad = false});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -14,7 +16,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [DeliveryScreen(), ProfileScreen()];
+  List<Widget> get _screens => [
+    DeliveryScreen(
+      key: ValueKey(widget.isSelfLoad),
+      isSelfLoad: widget.isSelfLoad,
+    ),
+    const ProfileScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {

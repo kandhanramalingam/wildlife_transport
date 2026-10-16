@@ -42,7 +42,7 @@ class DeliveryCard extends StatelessWidget {
               _buildPickupStopsSection(),
             ],
             const SizedBox(height: 10),
-            _buildDocumentsSection(),
+            if (delivery.lots.length <= 1) _buildDocumentsSection(),
             if (delivery.lots.isEmpty &&
                 delivery.assignment?.allLotNumbers.isNotEmpty == true) ...[
               const SizedBox(height: 10),
@@ -438,7 +438,7 @@ class DeliveryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildDocumentsSection() {
+  Widget _buildDocumentsSection({DeliveryLot? customer}) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -447,9 +447,12 @@ class DeliveryCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: TripDocumentActions(
-        invoicePath: delivery.invoicePath,
-        permits: delivery.permits,
-        maps: delivery.maps,
+        invoicePath: customer == null
+            ? delivery.invoicePath
+            : customer.invoicePath,
+        permits: customer == null ? delivery.permits : customer.permits,
+        maps: customer == null ? delivery.maps : customer.maps,
+        heading: customer == null ? 'Trip documents' : 'Client documents',
       ),
     );
   }
@@ -608,6 +611,10 @@ class DeliveryCard extends StatelessWidget {
               if (lot.longitude.isNotEmpty) 'Long: ${lot.longitude}',
             ].join('  •  '),
           ),
+        ],
+        if (delivery.lots.length > 1) ...[
+          const SizedBox(height: 10),
+          _buildDocumentsSection(customer: lot),
         ],
         if (delivery.lotNumbersForCustomer(lot).isNotEmpty) ...[
           const SizedBox(height: 10),

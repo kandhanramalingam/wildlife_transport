@@ -156,6 +156,8 @@ class DeliveryLot {
   final String latitude;
   final String longitude;
   final String? invoicePath;
+  final List<String> permits;
+  final List<String> maps;
   final int? loadingOrder;
   final bool? atDeliveryPointState;
   final DeliveryStatus status;
@@ -176,6 +178,8 @@ class DeliveryLot {
     this.latitude = '',
     this.longitude = '',
     this.invoicePath,
+    this.permits = const [],
+    this.maps = const [],
     this.loadingOrder,
     this.atDeliveryPointState,
     this.status = DeliveryStatus.pending,
@@ -225,6 +229,8 @@ class DeliveryLot {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       invoicePath: invoicePath,
+      permits: permits,
+      maps: maps,
       loadingOrder: loadingOrder ?? this.loadingOrder,
       atDeliveryPointState: atDeliveryPoint ?? this.atDeliveryPoint,
       status: status ?? this.status,

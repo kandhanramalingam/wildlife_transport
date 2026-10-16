@@ -27,11 +27,13 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       await _tokenStorage.saveAccessToken(dto.accessToken);
       await _tokenStorage.saveDriverId(dto.driver.id);
+      await _tokenStorage.saveIsSelfLoad(dto.driver.isSelfLoad);
       return LoginResult(
         driver: Driver(
           id: dto.driver.id,
           name: dto.driver.name,
           phone: dto.driver.phone,
+          isSelfLoad: dto.driver.isSelfLoad,
         ),
       );
     } on DioException catch (exception) {

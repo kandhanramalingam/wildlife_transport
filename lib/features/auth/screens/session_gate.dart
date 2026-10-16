@@ -49,7 +49,9 @@ class _SessionGateState extends State<SessionGate> {
       builder: (context, _) {
         return switch (_controller.status) {
           SessionStatus.checking => const _SplashScreen(),
-          SessionStatus.authenticated => const HomeScreen(),
+          SessionStatus.authenticated => HomeScreen(
+            isSelfLoad: _controller.isSelfLoad,
+          ),
           SessionStatus.unauthenticated => const LoginScreen(),
         };
       },

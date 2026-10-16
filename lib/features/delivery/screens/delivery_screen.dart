@@ -4,7 +4,9 @@ import '../tabs/today_tab.dart';
 import '../tabs/upcoming_tab.dart';
 
 class DeliveryScreen extends StatefulWidget {
-  const DeliveryScreen({super.key});
+  final bool isSelfLoad;
+
+  const DeliveryScreen({super.key, this.isSelfLoad = false});
 
   @override
   State<DeliveryScreen> createState() => _DeliveryScreenState();
@@ -18,12 +20,17 @@ class _DeliveryScreenState extends State<DeliveryScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this)
-      ..addListener(_onTabChanged);
+    _tabController = TabController(
+      length: widget.isSelfLoad ? 2 : 3,
+      vsync: this,
+    )..addListener(_onTabChanged);
   }
 
   void _onTabChanged() {
-    if (_tabController.index != 2 || _tabController.indexIsChanging) return;
+    if (_tabController.index != _tabController.length - 1 ||
+        _tabController.indexIsChanging) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _completedTabKey.currentState?.refresh();
     });
@@ -44,10 +51,10 @@ class _DeliveryScreenState extends State<DeliveryScreen>
         title: const Text('Deliveries'),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Today'),
-            Tab(text: 'Upcoming'),
-            Tab(text: 'Completed'),
+          tabs: [
+            const Tab(text: 'Today'),
+            if (!widget.isSelfLoad) const Tab(text: 'Upcoming'),
+            const Tab(text: 'Completed'),
           ],
         ),
       ),
@@ -55,7 +62,7 @@ class _DeliveryScreenState extends State<DeliveryScreen>
         controller: _tabController,
         children: [
           const TodayTab(),
-          const UpcomingTab(),
+          if (!widget.isSelfLoad) const UpcomingTab(),
           CompletedTab(key: _completedTabKey),
         ],
       ),

@@ -216,6 +216,8 @@ class DeliveryScheduleDto {
           ]),
         ),
         mainInvoicePath: _stringValue(json['invoicePath']),
+        mainPermits: permits,
+        mainMaps: maps,
         mainLoadingOrder: _intValue(
           json['loadingOrder'] ?? json['loadingSequence'],
         ),
@@ -242,6 +244,8 @@ class DeliveryScheduleDto {
     required String mainLatitude,
     required String mainLongitude,
     required String mainInvoicePath,
+    required List<String> mainPermits,
+    required List<String> mainMaps,
     required int? mainLoadingOrder,
     required String mainStatus,
     required List<String> mainLotNumbers,
@@ -263,6 +267,8 @@ class DeliveryScheduleDto {
         latitude: mainLatitude,
         longitude: mainLongitude,
         invoicePath: mainInvoicePath,
+        permits: mainPermits,
+        maps: mainMaps,
         loadingOrder: mainLoadingOrder,
         deliveryStatus: mainStatus,
         assignment: mainAssignment,
@@ -392,6 +398,12 @@ class DeliveryScheduleDto {
             delivery['invoicePath'] ??
                 buyer['invoicePath'] ??
                 client['invoicePath'],
+          ),
+          permits: _parseStringList(
+            delivery['permits'] ?? buyer['permits'] ?? client['permits'],
+          ),
+          maps: _parseStringList(
+            delivery['maps'] ?? buyer['maps'] ?? client['maps'],
           ),
           loadingOrder: _intValue(
             delivery['loadingOrder'] ??
@@ -690,6 +702,8 @@ class DeliveryLotDto {
   final String latitude;
   final String longitude;
   final String invoicePath;
+  final List<String> permits;
+  final List<String> maps;
   final int? loadingOrder;
   final String deliveryStatus;
   final bool mainBuyer;
@@ -707,6 +721,8 @@ class DeliveryLotDto {
     this.latitude = '',
     this.longitude = '',
     this.invoicePath = '',
+    this.permits = const [],
+    this.maps = const [],
     this.loadingOrder,
     required this.deliveryStatus,
     required this.mainBuyer,

@@ -16,14 +16,21 @@ class DriverDto {
   final String id;
   final String name;
   final String phone;
+  final bool isSelfLoad;
 
-  const DriverDto({required this.id, required this.name, required this.phone});
+  const DriverDto({
+    required this.id,
+    required this.name,
+    required this.phone,
+    this.isSelfLoad = false,
+  });
 
   factory DriverDto.fromJson(Map<String, dynamic> json) {
     return DriverDto(
       id: json['id'] as String,
       name: json['name'] as String,
       phone: json['phone'] as String,
+      isSelfLoad: json['isSelfLoad'] == true,
     );
   }
 }

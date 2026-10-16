@@ -3,14 +3,17 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 abstract interface class TokenStorage {
   Future<String?> readAccessToken();
   Future<String?> readDriverId();
+  Future<bool> readIsSelfLoad();
   Future<void> saveAccessToken(String token);
   Future<void> saveDriverId(String driverId);
+  Future<void> saveIsSelfLoad(bool isSelfLoad);
   Future<void> clear();
 }
 
 class SecureTokenStorage implements TokenStorage {
   static const _accessTokenKey = 'access_token';
   static const _driverIdKey = 'driver_id';
+  static const _isSelfLoadKey = 'is_self_load';
   final FlutterSecureStorage _storage;
 
   const SecureTokenStorage([
@@ -34,10 +37,19 @@ class SecureTokenStorage implements TokenStorage {
       _storage.write(key: _driverIdKey, value: driverId);
 
   @override
+  Future<bool> readIsSelfLoad() async =>
+      await _storage.read(key: _isSelfLoadKey) == 'true';
+
+  @override
+  Future<void> saveIsSelfLoad(bool isSelfLoad) =>
+      _storage.write(key: _isSelfLoadKey, value: isSelfLoad.toString());
+
+  @override
   Future<void> clear() async {
     // Preserve securely queued off-loading evidence when a session expires or
     // the driver signs out. It must be retried after authentication returns.
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _driverIdKey);
+    await _storage.delete(key: _isSelfLoadKey);
   }
 }

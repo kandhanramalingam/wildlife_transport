@@ -51,6 +51,8 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
               deliveryId: widget.delivery.id,
               address: widget.delivery.clientAddress,
               invoicePath: widget.delivery.invoicePath,
+              permits: widget.delivery.permits,
+              maps: widget.delivery.maps,
               status: DeliveryStatus.inProgress,
               offloadingSyncPending: widget.delivery.offloadingSyncPending,
               assignment: widget.delivery.assignment,
@@ -205,8 +207,10 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
       status: DeliveryStatus.inProgress,
       paymentStatus: widget.delivery.paymentStatus,
       invoicePath: customer.invoicePath,
-      permits: widget.delivery.permits,
-      maps: widget.delivery.maps,
+      permits: _customers.length > 1
+          ? customer.permits
+          : widget.delivery.permits,
+      maps: _customers.length > 1 ? customer.maps : widget.delivery.maps,
       assignment: customer.assignment ?? widget.delivery.assignment,
     );
     final completed = await Navigator.of(context).push<bool>(
@@ -385,9 +389,10 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
       padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
         if (widget.delivery.isMultiPickup ||
-            widget.delivery.permits.isNotEmpty ||
-            widget.delivery.maps.isNotEmpty ||
-            widget.delivery.invoicePath?.trim().isNotEmpty == true)
+            (_customers.length <= 1 &&
+                (widget.delivery.permits.isNotEmpty ||
+                    widget.delivery.maps.isNotEmpty ||
+                    widget.delivery.invoicePath?.trim().isNotEmpty == true)))
           _buildTripOverviewHeader(),
         ..._customers.map((customer) {
           final isActive = _activeCustomerDeliveryId == customer.deliveryId;
@@ -401,6 +406,7 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
               _savingLocationDeliveryId == customer.deliveryId;
           return _CustomerCard(
             customer: customer,
+            showClientDocuments: _customers.length > 1,
             isActive: isActive,
             isLocked: isLocked,
             isStarting: isStarting,
@@ -513,11 +519,12 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
               ],
               const SizedBox(height: 10),
             ],
-            TripDocumentActions(
-              invoicePath: widget.delivery.invoicePath,
-              permits: widget.delivery.permits,
-              maps: widget.delivery.maps,
-            ),
+            if (_customers.length <= 1)
+              TripDocumentActions(
+                invoicePath: widget.delivery.invoicePath,
+                permits: widget.delivery.permits,
+                maps: widget.delivery.maps,
+              ),
           ],
         ),
       ),
@@ -527,6 +534,7 @@ class _TripCustomersScreenState extends State<TripCustomersScreen> {
 
 class _CustomerCard extends StatelessWidget {
   final DeliveryLot customer;
+  final bool showClientDocuments;
   final bool isActive;
   final bool isLocked;
   final bool isStarting;
@@ -539,6 +547,7 @@ class _CustomerCard extends StatelessWidget {
 
   const _CustomerCard({
     required this.customer,
+    required this.showClientDocuments,
     required this.isActive,
     required this.isLocked,
     required this.isStarting,
@@ -553,6 +562,7 @@ class _CustomerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      key: ValueKey('delivery-customer-${customer.deliveryId}'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       clipBehavior: Clip.antiAlias,
       child: Padding(
@@ -589,16 +599,17 @@ class _CustomerCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  onPressed: onViewInvoice,
-                  icon: const Icon(Icons.picture_as_pdf_outlined),
-                  color: !customer.hasInvoice
-                      ? AppTheme.textSecondary
-                      : AppTheme.primary,
-                  tooltip: !customer.hasInvoice
-                      ? 'Invoice PDF unavailable'
-                      : 'View invoice PDF',
-                ),
+                if (!showClientDocuments)
+                  IconButton(
+                    onPressed: onViewInvoice,
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    color: !customer.hasInvoice
+                        ? AppTheme.textSecondary
+                        : AppTheme.primary,
+                    tooltip: !customer.hasInvoice
+                        ? 'Invoice PDF unavailable'
+                        : 'View invoice PDF',
+                  ),
                 if (customer.deliveryCompleted)
                   Row(
                     children: [
@@ -667,6 +678,15 @@ class _CustomerCard extends StatelessWidget {
                 destinationLatitude: customer.latitude,
                 destinationLongitude: customer.longitude,
                 showNavigation: !isLocked,
+              ),
+            ],
+            if (showClientDocuments) ...[
+              const SizedBox(height: 10),
+              TripDocumentActions(
+                invoicePath: customer.invoicePath,
+                permits: customer.permits,
+                maps: customer.maps,
+                heading: 'Client documents',
               ),
             ],
             const SizedBox(height: 10),

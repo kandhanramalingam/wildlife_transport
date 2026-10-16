@@ -10,6 +10,7 @@ class TripDocumentActions extends StatelessWidget {
   final List<String> permits;
   final List<String> maps;
   final bool showHeading;
+  final String heading;
 
   const TripDocumentActions({
     super.key,
@@ -17,6 +18,7 @@ class TripDocumentActions extends StatelessWidget {
     this.permits = const [],
     this.maps = const [],
     this.showHeading = true,
+    this.heading = 'Trip documents',
   });
 
   @override
@@ -26,9 +28,9 @@ class TripDocumentActions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showHeading) ...[
-          const Text(
-            'Trip documents',
-            style: TextStyle(
+          Text(
+            heading,
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
